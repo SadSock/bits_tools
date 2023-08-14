@@ -17,22 +17,20 @@ fn main() -> Result<(), eframe::Error> {
 }
 
 struct MyApp {
-    name: String,
-    age: u32,
     d32_array: [bool; 32],
     num_u32: u32,
     num_i32: i32,
+    num_f32: f32,
     hex: String,
 }
 
 impl Default for MyApp {
     fn default() -> Self {
         Self {
-            name: "Arthur".to_owned(),
-            age: 42,
             d32_array: [false; 32],
             num_u32: 0,
             num_i32: 0,
+            num_f32: 0.0,
             hex: "0x0".to_owned(),
         }
     }
@@ -44,18 +42,67 @@ impl eframe::App for MyApp {
             ui.heading("My egui Application");
 
             ui.horizontal(|ui| {
-                for i in 0..32 {
-                    if ui.checkbox(&mut self.d32_array[31 - i], "").clicked() {
-                        self.num_u32 = 0;
-                        for j in 0..32 {
-                            if self.d32_array[31 - j] {
-                                self.num_u32 = self.num_u32 | (0x1 << (31 - j));
-                            }
+                ui.group(|ui| {
+                    // signed bit
+                    ui.vertical(|ui| {
+                        ui.label("sign");
+                        for i in 0..1 {
+                            ui.vertical(|ui| {
+                                if ui.checkbox(&mut self.d32_array[31 - i], "").clicked() {
+                                    if self.d32_array[31 - i] {
+                                        self.num_u32 = self.num_u32 | (0x1 << (31 - i));
+                                    } else {
+                                        self.num_u32 = self.num_u32 & !(0x1 << (31 - i));
+                                    }
+                                }
+                                ui.label(format!("{}", 31 - i));
+                            });
                         }
-                    }
-                }
-            });
+                    })
+                });
 
+                ui.group(|ui| {
+                    ui.vertical(|ui| {
+                        ui.label("exp");
+                        // exp bits
+                        ui.horizontal(|ui| {
+                            for i in 1..9 {
+                                ui.vertical(|ui| {
+                                    if ui.checkbox(&mut self.d32_array[31 - i], "").clicked() {
+                                        if self.d32_array[31 - i] {
+                                            self.num_u32 = self.num_u32 | (0x1 << (31 - i));
+                                        } else {
+                                            self.num_u32 = self.num_u32 & !(0x1 << (31 - i));
+                                        }
+                                    }
+                                    ui.label(format!("{}", 31 - i));
+                                });
+                            }
+                        });
+                    });
+                });
+
+                ui.group(|ui| {
+                    ui.vertical(|ui| {
+                        ui.label("mantiss");
+                        // exp bits
+                        ui.horizontal(|ui| {
+                            for i in 9..32 {
+                                ui.vertical(|ui| {
+                                    if ui.checkbox(&mut self.d32_array[31 - i], "").clicked() {
+                                        if self.d32_array[31 - i] {
+                                            self.num_u32 = self.num_u32 | (0x1 << (31 - i));
+                                        } else {
+                                            self.num_u32 = self.num_u32 & !(0x1 << (31 - i));
+                                        }
+                                    }
+                                    ui.label(format!("{}", 31 - i));
+                                });
+                            }
+                        });
+                    });
+                });
+            });
             if ui.text_edit_singleline(&mut self.hex).changed() {}
 
             if ui.button("-1").clicked() {
@@ -109,9 +156,11 @@ impl eframe::App for MyApp {
                 }
             }
 
+            self.hex = format!("0x{:X}", self.num_u32);
             unsafe {
                 // self.num_u32 = self.num_u32.unchecked_sub(1);
                 self.num_i32 = mem::transmute(self.num_u32);
+                self.num_f32 = mem::transmute(self.num_u32);
             }
             for i in 0..32 {
                 if self.num_u32 & (0x1 << i) != 0 {
@@ -125,8 +174,7 @@ impl eframe::App for MyApp {
             ui.label(format!("hex: 0x{:X}", self.num_u32));
             ui.label(format!("u32: {}", self.num_u32));
             ui.label(format!("i32: {}", self.num_i32));
-
-            self.hex = format!("0x{:X}", self.num_u32);
+            ui.label(format!("f32: {}", self.num_f32));
         });
     }
 }
