@@ -6,7 +6,7 @@ use std::mem;
 fn main() -> Result<(), eframe::Error> {
     env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
     let options = eframe::NativeOptions {
-        initial_window_size: Some(egui::vec2(900.0, 600.0)),
+        initial_window_size: Some(egui::vec2(900.0, 500.0)),
         ..Default::default()
     };
     eframe::run_native(
@@ -16,6 +16,13 @@ fn main() -> Result<(), eframe::Error> {
     )
 }
 
+#[derive(PartialEq, Eq)]
+enum Panel {
+    X86,
+    AMD,
+}
+
+#[derive(Clone, PartialEq)]
 struct Operator {
     bits: [bool; 32],
     unsign: u32,
@@ -27,7 +34,8 @@ struct Operator {
     float_str: String,
 }
 
-struct MyApp {
+#[derive(Clone, PartialEq)]
+struct X86 {
     src0: Operator,
     src1: Operator,
     src2: Operator,
@@ -35,7 +43,60 @@ struct MyApp {
     selected: usize,
 }
 
-impl Default for MyApp {
+impl X86 {
+    fn update_ui(&mut self, ctx: &egui::Context, ui: &mut egui::Ui) {
+        window_operator(ctx, ui, &mut self.src0);
+        window_operator(ctx, ui, &mut self.src1);
+        window_operator(ctx, ui, &mut self.src2);
+        let instructions = ["mul_u32", "mul_i32", "add_u32", "add_i32"];
+        egui::ComboBox::from_label("Select Instruction!").show_index(
+            ui,
+            &mut self.selected,
+            instructions.len(),
+            |i| instructions[i],
+        );
+
+        match instructions[self.selected] {
+            "mul_u32" => {
+                let a = self.src0.unsign;
+                let b = self.src1.unsign;
+                let c = a.wrapping_mul(b);
+                self.dest.unsign = c;
+            }
+            "mul_i32" => {
+                let a = self.src0.sign;
+                let b = self.src1.sign;
+                let c = a.wrapping_mul(b);
+                unsafe {
+                    self.dest.unsign = mem::transmute(c);
+                }
+            }
+            "add_u32" => {
+                let a = self.src0.unsign;
+                let b = self.src1.unsign;
+                let c = a.wrapping_add(b);
+                self.dest.unsign = c;
+            }
+            "add_i32" => {
+                let a = self.src0.sign;
+                let b = self.src1.sign;
+                let c = a.wrapping_add(b);
+                unsafe {
+                    self.dest.unsign = mem::transmute(c);
+                }
+            }
+            _ => {}
+        }
+
+        window_operator(ctx, ui, &mut self.dest);
+        update_operator(&mut self.src1);
+        update_operator(&mut self.src0);
+        update_operator(&mut self.src2);
+        update_operator(&mut self.dest);
+    }
+}
+
+impl Default for X86 {
     fn default() -> Self {
         Self {
             src0: Operator {
@@ -83,57 +144,37 @@ impl Default for MyApp {
     }
 }
 
+struct MyApp {
+    open_panel: Panel,
+    x86_panel: X86,
+}
+
+impl Default for MyApp {
+    fn default() -> Self {
+        Self {
+            open_panel: Panel::X86,
+            x86_panel: X86::default(),
+        }
+    }
+}
+
 impl eframe::App for MyApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         egui::CentralPanel::default().show(ctx, |ui| {
-            window_operator(ctx, _frame, ui, &mut self.src0);
-            window_operator(ctx, _frame, ui, &mut self.src1);
-            window_operator(ctx, _frame, ui, &mut self.src2);
-            let instructions = ["mul_u32", "mul_i32", "add_u32", "add_i32"];
-            egui::ComboBox::from_label("Select Instruction!").show_index(
-                ui,
-                &mut self.selected,
-                instructions.len(),
-                |i| instructions[i],
-            );
+            ui.separator();
+            ui.horizontal(|ui| {
+                ui.selectable_value(&mut self.open_panel, Panel::AMD, "AMD");
+                ui.selectable_value(&mut self.open_panel, Panel::X86, "X86");
+            });
+            ui.separator();
 
-            match instructions[self.selected] {
-                "mul_u32" => {
-                    let a = self.src0.unsign;
-                    let b = self.src1.unsign;
-                    let c = a.wrapping_mul(b);
-                    self.dest.unsign = c;
+            match self.open_panel {
+                Panel::X86 => {
+                    self.x86_panel.update_ui(ctx, ui);
                 }
-                "mul_i32" => {
-                    let a = self.src0.sign;
-                    let b = self.src1.sign;
-                    let c = a.wrapping_mul(b);
-                    unsafe {
-                        self.dest.unsign = mem::transmute(c);
-                    }
-                }
-                "add_u32" => {
-                    let a = self.src0.unsign;
-                    let b = self.src1.unsign;
-                    let c = a.wrapping_add(b);
-                    self.dest.unsign = c;
-                }
-                "add_i32" => {
-                    let a = self.src0.sign;
-                    let b = self.src1.sign;
-                    let c = a.wrapping_add(b);
-                    unsafe {
-                        self.dest.unsign = mem::transmute(c);
-                    }
-                }
-                _ => {}
+
+                Panel::AMD => {}
             }
-
-            window_operator(ctx, _frame, ui, &mut self.dest);
-            update_operator(&mut self.src1);
-            update_operator(&mut self.src0);
-            update_operator(&mut self.src2);
-            update_operator(&mut self.dest);
         });
     }
 }
@@ -156,19 +197,33 @@ fn update_operator(op: &mut Operator) {
     }
 }
 
-fn window_operator(
-    ctx: &egui::Context,
-    frame: &mut eframe::Frame,
-    ui: &mut egui::Ui,
-    op: &mut Operator,
-) {
-    ui.group(|ui| {
-        ui.horizontal(|ui| {
-            // signed bit
-            ui.group(|ui| {
-                ui.vertical(|ui| {
-                    ui.label("sign");
-                    for i in 0..1 {
+fn window_operator(ctx: &egui::Context, ui: &mut egui::Ui, op: &mut Operator) {
+    ui.horizontal(|ui| {
+        // signed bit
+        ui.group(|ui| {
+            ui.vertical(|ui| {
+                ui.label("sign");
+                for i in 0..1 {
+                    ui.vertical(|ui| {
+                        if ui.checkbox(&mut op.bits[31 - i], "").clicked() {
+                            if op.bits[31 - i] {
+                                op.unsign = op.unsign | (0x1 << (31 - i));
+                            } else {
+                                op.unsign = op.unsign & !(0x1 << (31 - i));
+                            }
+                        }
+                        ui.label(format!("{}", 31 - i));
+                    });
+                }
+            })
+        });
+
+        // exp bits
+        ui.group(|ui| {
+            ui.vertical(|ui| {
+                ui.label("exp");
+                ui.horizontal(|ui| {
+                    for i in 1..9 {
                         ui.vertical(|ui| {
                             if ui.checkbox(&mut op.bits[31 - i], "").clicked() {
                                 if op.bits[31 - i] {
@@ -180,97 +235,90 @@ fn window_operator(
                             ui.label(format!("{}", 31 - i));
                         });
                     }
-                })
-            });
-
-            // exp bits
-            ui.group(|ui| {
-                ui.vertical(|ui| {
-                    ui.label("exp");
-                    ui.horizontal(|ui| {
-                        for i in 1..9 {
-                            ui.vertical(|ui| {
-                                if ui.checkbox(&mut op.bits[31 - i], "").clicked() {
-                                    if op.bits[31 - i] {
-                                        op.unsign = op.unsign | (0x1 << (31 - i));
-                                    } else {
-                                        op.unsign = op.unsign & !(0x1 << (31 - i));
-                                    }
-                                }
-                                ui.label(format!("{}", 31 - i));
-                            });
-                        }
-                    });
-                });
-            });
-
-            // exp mantissa
-            ui.group(|ui| {
-                ui.vertical(|ui| {
-                    ui.label("mantissa");
-                    ui.horizontal(|ui| {
-                        for i in 9..32 {
-                            ui.vertical(|ui| {
-                                if ui.checkbox(&mut op.bits[31 - i], "").clicked() {
-                                    if op.bits[31 - i] {
-                                        op.unsign = op.unsign | (0x1 << (31 - i));
-                                    } else {
-                                        op.unsign = op.unsign & !(0x1 << (31 - i));
-                                    }
-                                }
-                                ui.label(format!("{}", 31 - i));
-                            });
-                        }
-                    });
                 });
             });
         });
 
-        if ui.text_edit_singleline(&mut op.hex_str).changed() {}
-        if ui.text_edit_singleline(&mut op.unsign_str).changed() {}
-        if ui.text_edit_singleline(&mut op.sign_str).changed() {}
-        if ui.text_edit_singleline(&mut op.float_str).changed() {}
+        // exp mantissa
+        ui.group(|ui| {
+            ui.vertical(|ui| {
+                ui.label("mantissa");
+                ui.horizontal(|ui| {
+                    for i in 9..32 {
+                        ui.vertical(|ui| {
+                            if ui.checkbox(&mut op.bits[31 - i], "").clicked() {
+                                if op.bits[31 - i] {
+                                    op.unsign = op.unsign | (0x1 << (31 - i));
+                                } else {
+                                    op.unsign = op.unsign & !(0x1 << (31 - i));
+                                }
+                            }
+                            ui.label(format!("{}", 31 - i));
+                        });
+                    }
+                });
+            });
+        });
+    });
 
-        ui.horizontal(|ui| {
-            if ui.button("-1").clicked() {
-                unsafe {
-                    op.unsign = mem::transmute(-1);
-                }
+    ui.horizontal(|ui| {
+        let response = ui.add(egui::TextEdit::singleline(&mut op.hex_str).desired_width(100.0));
+        if response.changed() {
+            // …
+        }
+
+        let response = ui.add(egui::TextEdit::singleline(&mut op.unsign_str).desired_width(100.0));
+        if response.changed() {
+            // …
+        }
+        let response = ui.add(egui::TextEdit::singleline(&mut op.sign_str).desired_width(100.0));
+        if response.changed() {
+            // …
+        }
+        let response = ui.add(egui::TextEdit::singleline(&mut op.float_str).desired_width(350.0));
+        if response.changed() {
+            // …
+        }
+    });
+    ui.horizontal(|ui| {
+        if ui.button("-1").clicked() {
+            unsafe {
+                op.unsign = mem::transmute(-1);
             }
-            if ui.button("0").clicked() {
+        }
+        if ui.button("0").clicked() {
+            op.unsign = 0;
+        }
+
+        if ui.button("des").clicked() {
+            if op.unsign == 0 {
+                op.unsign = u32::MAX;
+            } else {
+                op.unsign = op.unsign - 1;
+            }
+        }
+        if ui.button("inc").clicked() {
+            if op.unsign == u32::MAX {
                 op.unsign = 0;
+            } else {
+                op.unsign = op.unsign + 1;
             }
+        }
 
-            if ui.button("des").clicked() {
-                if op.unsign == 0 {
-                    op.unsign = u32::MAX;
-                } else {
-                    op.unsign = op.unsign - 1;
-                }
-            }
-            if ui.button("inc").clicked() {
-                if op.unsign == u32::MAX {
-                    op.unsign = 0;
-                } else {
-                    op.unsign = op.unsign + 1;
-                }
-            }
+        if ui.button("lshr").clicked() {
+            op.unsign = op.unsign.checked_shr(1).unwrap();
+        }
 
-            if ui.button("lshr").clicked() {
-                op.unsign = op.unsign.checked_shr(1).unwrap();
-            }
+        if ui.button("lshl").clicked() {
+            op.unsign = op.unsign.checked_shl(1).unwrap();
+        }
 
-            if ui.button("lshl").clicked() {
-                op.unsign = op.unsign.checked_shl(1).unwrap();
+        if ui.button("ashr").clicked() {
+            unsafe {
+                let mut tmp: i32 = mem::transmute(op.unsign);
+                tmp = tmp.checked_shr(1).unwrap();
+                op.unsign = mem::transmute(tmp);
             }
-
-            if ui.button("ashr").clicked() {
-                unsafe {
-                    let mut tmp: i32 = mem::transmute(op.unsign);
-                    tmp = tmp.checked_shr(1).unwrap();
-                    op.unsign = mem::transmute(tmp);
-                }
-            }
-        });
+        }
     });
 }
