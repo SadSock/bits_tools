@@ -6,7 +6,7 @@ use std::mem;
 fn main() -> Result<(), eframe::Error> {
     env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
     let options = eframe::NativeOptions {
-        initial_window_size: Some(egui::vec2(900.0, 300.0)),
+        initial_window_size: Some(egui::vec2(900.0, 600.0)),
         ..Default::default()
     };
     eframe::run_native(
@@ -16,28 +16,69 @@ fn main() -> Result<(), eframe::Error> {
     )
 }
 
+struct Operator {
+    bits: [bool; 32],
+    unsign: u32,
+    sign: i32,
+    float: f32,
+    hex_str: String,
+    unsign_str: String,
+    sign_str: String,
+    float_str: String,
+}
+
 struct MyApp {
-    a_bools: [bool; 32],
-    a_u32: u32,
-    a_i32: i32,
-    a_f32: f32,
-    a_hex_str: String,
-    a_u32_str: String,
-    a_i32_str: String,
-    a_f32_str: String,
+    src0: Operator,
+    src1: Operator,
+    src2: Operator,
+    dest: Operator,
+    selected: usize,
 }
 
 impl Default for MyApp {
     fn default() -> Self {
         Self {
-            a_bools: [false; 32],
-            a_u32: 0,
-            a_i32: 0,
-            a_f32: 0.0,
-            a_hex_str: "0x0".to_owned(),
-            a_u32_str: 0.to_string(),
-            a_i32_str: 0.to_string(),
-            a_f32_str: 0.0.to_string(),
+            src0: Operator {
+                bits: [false; 32],
+                unsign: 0,
+                sign: 0,
+                float: 0.0,
+                hex_str: "0x0".to_owned(),
+                unsign_str: 0.to_string(),
+                sign_str: 0.to_string(),
+                float_str: 0.0.to_string(),
+            },
+            src1: Operator {
+                bits: [false; 32],
+                unsign: 0,
+                sign: 0,
+                float: 0.0,
+                hex_str: "0x0".to_owned(),
+                unsign_str: 0.to_string(),
+                sign_str: 0.to_string(),
+                float_str: 0.0.to_string(),
+            },
+            src2: Operator {
+                bits: [false; 32],
+                unsign: 0,
+                sign: 0,
+                float: 0.0,
+                hex_str: "0x0".to_owned(),
+                unsign_str: 0.to_string(),
+                sign_str: 0.to_string(),
+                float_str: 0.0.to_string(),
+            },
+            dest: Operator {
+                bits: [false; 32],
+                unsign: 0,
+                sign: 0,
+                float: 0.0,
+                hex_str: "0x0".to_owned(),
+                unsign_str: 0.to_string(),
+                sign_str: 0.to_string(),
+                float_str: 0.0.to_string(),
+            },
+            selected: 0,
         }
     }
 }
@@ -45,131 +86,191 @@ impl Default for MyApp {
 impl eframe::App for MyApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         egui::CentralPanel::default().show(ctx, |ui| {
-            ui.horizontal(|ui| {
-                // signed bit
-                ui.group(|ui| {
-                    ui.vertical(|ui| {
-                        ui.label("sign");
-                        for i in 0..1 {
+            window_operator(ctx, _frame, ui, &mut self.src0);
+            window_operator(ctx, _frame, ui, &mut self.src1);
+            window_operator(ctx, _frame, ui, &mut self.src2);
+            let instructions = ["mul_u32", "mul_i32", "add_u32", "add_i32"];
+            egui::ComboBox::from_label("Select Instruction!").show_index(
+                ui,
+                &mut self.selected,
+                instructions.len(),
+                |i| instructions[i],
+            );
+
+            match instructions[self.selected] {
+                "mul_u32" => {
+                    let a = self.src0.unsign;
+                    let b = self.src1.unsign;
+                    let c = a.wrapping_mul(b);
+                    self.dest.unsign = c;
+                }
+                "mul_i32" => {
+                    let a = self.src0.sign;
+                    let b = self.src1.sign;
+                    let c = a.wrapping_mul(b);
+                    unsafe {
+                        self.dest.unsign = mem::transmute(c);
+                    }
+                }
+                "add_u32" => {
+                    let a = self.src0.unsign;
+                    let b = self.src1.unsign;
+                    let c = a.wrapping_add(b);
+                    self.dest.unsign = c;
+                }
+                "add_i32" => {
+                    let a = self.src0.sign;
+                    let b = self.src1.sign;
+                    let c = a.wrapping_add(b);
+                    unsafe {
+                        self.dest.unsign = mem::transmute(c);
+                    }
+                }
+                _ => {}
+            }
+
+            window_operator(ctx, _frame, ui, &mut self.dest);
+            update_operator(&mut self.src1);
+            update_operator(&mut self.src0);
+            update_operator(&mut self.src2);
+            update_operator(&mut self.dest);
+        });
+    }
+}
+
+fn update_operator(op: &mut Operator) {
+    unsafe {
+        op.sign = mem::transmute(op.unsign);
+        op.float = mem::transmute(op.unsign);
+    }
+    op.hex_str = format!("0x{:X}", op.unsign);
+    op.sign_str = format!("{}", op.sign);
+    op.unsign_str = format!("{}", op.unsign);
+    op.float_str = format!("{}", op.float);
+    for i in 0..32 {
+        if op.unsign & (0x1 << i) != 0 {
+            op.bits[i] = true;
+        } else {
+            op.bits[i] = false;
+        }
+    }
+}
+
+fn window_operator(
+    ctx: &egui::Context,
+    frame: &mut eframe::Frame,
+    ui: &mut egui::Ui,
+    op: &mut Operator,
+) {
+    ui.group(|ui| {
+        ui.horizontal(|ui| {
+            // signed bit
+            ui.group(|ui| {
+                ui.vertical(|ui| {
+                    ui.label("sign");
+                    for i in 0..1 {
+                        ui.vertical(|ui| {
+                            if ui.checkbox(&mut op.bits[31 - i], "").clicked() {
+                                if op.bits[31 - i] {
+                                    op.unsign = op.unsign | (0x1 << (31 - i));
+                                } else {
+                                    op.unsign = op.unsign & !(0x1 << (31 - i));
+                                }
+                            }
+                            ui.label(format!("{}", 31 - i));
+                        });
+                    }
+                })
+            });
+
+            // exp bits
+            ui.group(|ui| {
+                ui.vertical(|ui| {
+                    ui.label("exp");
+                    ui.horizontal(|ui| {
+                        for i in 1..9 {
                             ui.vertical(|ui| {
-                                if ui.checkbox(&mut self.a_bools[31 - i], "").clicked() {
-                                    if self.a_bools[31 - i] {
-                                        self.a_u32 = self.a_u32 | (0x1 << (31 - i));
+                                if ui.checkbox(&mut op.bits[31 - i], "").clicked() {
+                                    if op.bits[31 - i] {
+                                        op.unsign = op.unsign | (0x1 << (31 - i));
                                     } else {
-                                        self.a_u32 = self.a_u32 & !(0x1 << (31 - i));
+                                        op.unsign = op.unsign & !(0x1 << (31 - i));
                                     }
                                 }
                                 ui.label(format!("{}", 31 - i));
                             });
                         }
-                    })
-                });
-
-                // exp bits
-                ui.group(|ui| {
-                    ui.vertical(|ui| {
-                        ui.label("exp");
-                        ui.horizontal(|ui| {
-                            for i in 1..9 {
-                                ui.vertical(|ui| {
-                                    if ui.checkbox(&mut self.a_bools[31 - i], "").clicked() {
-                                        if self.a_bools[31 - i] {
-                                            self.a_u32 = self.a_u32 | (0x1 << (31 - i));
-                                        } else {
-                                            self.a_u32 = self.a_u32 & !(0x1 << (31 - i));
-                                        }
-                                    }
-                                    ui.label(format!("{}", 31 - i));
-                                });
-                            }
-                        });
-                    });
-                });
-
-                // exp mantissa
-                ui.group(|ui| {
-                    ui.vertical(|ui| {
-                        ui.label("mantissa");
-                        ui.horizontal(|ui| {
-                            for i in 9..32 {
-                                ui.vertical(|ui| {
-                                    if ui.checkbox(&mut self.a_bools[31 - i], "").clicked() {
-                                        if self.a_bools[31 - i] {
-                                            self.a_u32 = self.a_u32 | (0x1 << (31 - i));
-                                        } else {
-                                            self.a_u32 = self.a_u32 & !(0x1 << (31 - i));
-                                        }
-                                    }
-                                    ui.label(format!("{}", 31 - i));
-                                });
-                            }
-                        });
                     });
                 });
             });
 
-            if ui.text_edit_singleline(&mut self.a_hex_str).changed() {}
-            if ui.text_edit_singleline(&mut self.a_u32_str).changed() {}
-            if ui.text_edit_singleline(&mut self.a_i32_str).changed() {}
-            if ui.text_edit_singleline(&mut self.a_f32_str).changed() {}
-
-            ui.horizontal(|ui| {
-                if ui.button("-1").clicked() {
-                    unsafe {
-                        self.a_u32 = mem::transmute(-1);
-                    }
-                }
-                if ui.button("0").clicked() {
-                    self.a_u32 = 0;
-                }
-
-                if ui.button("des").clicked() {
-                    if self.a_u32 == 0 {
-                        self.a_u32 = u32::MAX;
-                    } else {
-                        self.a_u32 = self.a_u32 - 1;
-                    }
-                }
-                if ui.button("inc").clicked() {
-                    if self.a_u32 == u32::MAX {
-                        self.a_u32 = 0;
-                    } else {
-                        self.a_u32 = self.a_u32 + 1;
-                    }
-                }
-
-                if ui.button("lshr").clicked() {
-                    self.a_u32 = self.a_u32.checked_shr(1).unwrap();
-                }
-
-                if ui.button("lshl").clicked() {
-                    self.a_u32 = self.a_u32.checked_shl(1).unwrap();
-                }
-
-                if ui.button("ashr").clicked() {
-                    unsafe {
-                        let mut tmp: i32 = mem::transmute(self.a_u32);
-                        tmp = tmp.checked_shr(1).unwrap();
-                        self.a_u32 = mem::transmute(tmp);
-                    }
-                }
+            // exp mantissa
+            ui.group(|ui| {
+                ui.vertical(|ui| {
+                    ui.label("mantissa");
+                    ui.horizontal(|ui| {
+                        for i in 9..32 {
+                            ui.vertical(|ui| {
+                                if ui.checkbox(&mut op.bits[31 - i], "").clicked() {
+                                    if op.bits[31 - i] {
+                                        op.unsign = op.unsign | (0x1 << (31 - i));
+                                    } else {
+                                        op.unsign = op.unsign & !(0x1 << (31 - i));
+                                    }
+                                }
+                                ui.label(format!("{}", 31 - i));
+                            });
+                        }
+                    });
+                });
             });
+        });
 
-            unsafe {
-                self.a_i32 = mem::transmute(self.a_u32);
-                self.a_f32 = mem::transmute(self.a_u32);
+        if ui.text_edit_singleline(&mut op.hex_str).changed() {}
+        if ui.text_edit_singleline(&mut op.unsign_str).changed() {}
+        if ui.text_edit_singleline(&mut op.sign_str).changed() {}
+        if ui.text_edit_singleline(&mut op.float_str).changed() {}
+
+        ui.horizontal(|ui| {
+            if ui.button("-1").clicked() {
+                unsafe {
+                    op.unsign = mem::transmute(-1);
+                }
             }
-            self.a_hex_str = format!("0x{:X}", self.a_u32);
-            self.a_i32_str = format!("{}", self.a_i32);
-            self.a_u32_str = format!("{}", self.a_u32);
-            self.a_f32_str = format!("{}", self.a_f32);
-            for i in 0..32 {
-                if self.a_u32 & (0x1 << i) != 0 {
-                    self.a_bools[i] = true;
+            if ui.button("0").clicked() {
+                op.unsign = 0;
+            }
+
+            if ui.button("des").clicked() {
+                if op.unsign == 0 {
+                    op.unsign = u32::MAX;
                 } else {
-                    self.a_bools[i] = false;
+                    op.unsign = op.unsign - 1;
+                }
+            }
+            if ui.button("inc").clicked() {
+                if op.unsign == u32::MAX {
+                    op.unsign = 0;
+                } else {
+                    op.unsign = op.unsign + 1;
+                }
+            }
+
+            if ui.button("lshr").clicked() {
+                op.unsign = op.unsign.checked_shr(1).unwrap();
+            }
+
+            if ui.button("lshl").clicked() {
+                op.unsign = op.unsign.checked_shl(1).unwrap();
+            }
+
+            if ui.button("ashr").clicked() {
+                unsafe {
+                    let mut tmp: i32 = mem::transmute(op.unsign);
+                    tmp = tmp.checked_shr(1).unwrap();
+                    op.unsign = mem::transmute(tmp);
                 }
             }
         });
-    }
+    });
 }
