@@ -18,7 +18,7 @@ fn main() -> Result<(), eframe::Error> {
 
 #[derive(PartialEq, Eq)]
 enum Panel {
-    X86,
+    Bits,
     AMD,
 }
 
@@ -32,10 +32,27 @@ struct Operator {
     unsign_str: String,
     sign_str: String,
     float_str: String,
+    name: String,
 }
 
+// impl Default for Operator {
+//     fn default() -> Self {
+//         Self {
+//             bits: [false; 32],
+//             unsign: 0,
+//             sign: 0,
+//             float: 0.0,
+//             hex_str: "0x0".to_owned(),
+//             unsign_str: 0.to_string(),
+//             sign_str: 0.to_string(),
+//             float_str: 0.0.to_string(),
+//             name: _name,
+//         }
+//     }
+// }
+
 #[derive(Clone, PartialEq)]
-struct X86 {
+struct Bits {
     src0: Operator,
     src1: Operator,
     src2: Operator,
@@ -43,8 +60,8 @@ struct X86 {
     selected: usize,
 }
 
-impl X86 {
-    fn update_ui(&mut self, ctx: &egui::Context, ui: &mut egui::Ui) {
+impl Bits {
+    fn draw_ui(&mut self, ctx: &egui::Context, ui: &mut egui::Ui) {
         window_operator(ctx, ui, &mut self.src0);
         window_operator(ctx, ui, &mut self.src1);
         window_operator(ctx, ui, &mut self.src2);
@@ -96,7 +113,7 @@ impl X86 {
     }
 }
 
-impl Default for X86 {
+impl Default for Bits {
     fn default() -> Self {
         Self {
             src0: Operator {
@@ -108,6 +125,7 @@ impl Default for X86 {
                 unsign_str: 0.to_string(),
                 sign_str: 0.to_string(),
                 float_str: 0.0.to_string(),
+                name: "src0".to_owned(),
             },
             src1: Operator {
                 bits: [false; 32],
@@ -118,6 +136,7 @@ impl Default for X86 {
                 unsign_str: 0.to_string(),
                 sign_str: 0.to_string(),
                 float_str: 0.0.to_string(),
+                name: "src1".to_owned(),
             },
             src2: Operator {
                 bits: [false; 32],
@@ -128,6 +147,7 @@ impl Default for X86 {
                 unsign_str: 0.to_string(),
                 sign_str: 0.to_string(),
                 float_str: 0.0.to_string(),
+                name: "src2".to_owned(),
             },
             dest: Operator {
                 bits: [false; 32],
@@ -138,6 +158,7 @@ impl Default for X86 {
                 unsign_str: 0.to_string(),
                 sign_str: 0.to_string(),
                 float_str: 0.0.to_string(),
+                name: "dest".to_owned(),
             },
             selected: 0,
         }
@@ -146,14 +167,14 @@ impl Default for X86 {
 
 struct MyApp {
     open_panel: Panel,
-    x86_panel: X86,
+    x86_panel: Bits,
 }
 
 impl Default for MyApp {
     fn default() -> Self {
         Self {
-            open_panel: Panel::X86,
-            x86_panel: X86::default(),
+            open_panel: Panel::Bits,
+            x86_panel: Bits::default(),
         }
     }
 }
@@ -164,13 +185,13 @@ impl eframe::App for MyApp {
             ui.separator();
             ui.horizontal(|ui| {
                 ui.selectable_value(&mut self.open_panel, Panel::AMD, "AMD");
-                ui.selectable_value(&mut self.open_panel, Panel::X86, "X86");
+                ui.selectable_value(&mut self.open_panel, Panel::Bits, "X86");
             });
             ui.separator();
 
             match self.open_panel {
-                Panel::X86 => {
-                    self.x86_panel.update_ui(ctx, ui);
+                Panel::Bits => {
+                    self.x86_panel.draw_ui(ctx, ui);
                 }
 
                 Panel::AMD => {}
@@ -198,32 +219,13 @@ fn update_operator(op: &mut Operator) {
 }
 
 fn window_operator(ctx: &egui::Context, ui: &mut egui::Ui, op: &mut Operator) {
-    ui.horizontal(|ui| {
-        // signed bit
-        ui.group(|ui| {
-            ui.vertical(|ui| {
-                ui.label("sign");
-                for i in 0..1 {
-                    ui.vertical(|ui| {
-                        if ui.checkbox(&mut op.bits[31 - i], "").clicked() {
-                            if op.bits[31 - i] {
-                                op.unsign = op.unsign | (0x1 << (31 - i));
-                            } else {
-                                op.unsign = op.unsign & !(0x1 << (31 - i));
-                            }
-                        }
-                        ui.label(format!("{}", 31 - i));
-                    });
-                }
-            })
-        });
-
-        // exp bits
-        ui.group(|ui| {
-            ui.vertical(|ui| {
-                ui.label("exp");
-                ui.horizontal(|ui| {
-                    for i in 1..9 {
+    ui.collapsing(op.name.to_owned(), |ui| {
+        ui.horizontal(|ui| {
+            // signed bit
+            ui.group(|ui| {
+                ui.vertical(|ui| {
+                    ui.label("sign");
+                    for i in 0..1 {
                         ui.vertical(|ui| {
                             if ui.checkbox(&mut op.bits[31 - i], "").clicked() {
                                 if op.bits[31 - i] {
@@ -235,27 +237,48 @@ fn window_operator(ctx: &egui::Context, ui: &mut egui::Ui, op: &mut Operator) {
                             ui.label(format!("{}", 31 - i));
                         });
                     }
+                })
+            });
+
+            // exp bits
+            ui.group(|ui| {
+                ui.vertical(|ui| {
+                    ui.label("exp");
+                    ui.horizontal(|ui| {
+                        for i in 1..9 {
+                            ui.vertical(|ui| {
+                                if ui.checkbox(&mut op.bits[31 - i], "").clicked() {
+                                    if op.bits[31 - i] {
+                                        op.unsign = op.unsign | (0x1 << (31 - i));
+                                    } else {
+                                        op.unsign = op.unsign & !(0x1 << (31 - i));
+                                    }
+                                }
+                                ui.label(format!("{}", 31 - i));
+                            });
+                        }
+                    });
                 });
             });
-        });
 
-        // exp mantissa
-        ui.group(|ui| {
-            ui.vertical(|ui| {
-                ui.label("mantissa");
-                ui.horizontal(|ui| {
-                    for i in 9..32 {
-                        ui.vertical(|ui| {
-                            if ui.checkbox(&mut op.bits[31 - i], "").clicked() {
-                                if op.bits[31 - i] {
-                                    op.unsign = op.unsign | (0x1 << (31 - i));
-                                } else {
-                                    op.unsign = op.unsign & !(0x1 << (31 - i));
+            // exp mantissa
+            ui.group(|ui| {
+                ui.vertical(|ui| {
+                    ui.label("mantissa");
+                    ui.horizontal(|ui| {
+                        for i in 9..32 {
+                            ui.vertical(|ui| {
+                                if ui.checkbox(&mut op.bits[31 - i], "").clicked() {
+                                    if op.bits[31 - i] {
+                                        op.unsign = op.unsign | (0x1 << (31 - i));
+                                    } else {
+                                        op.unsign = op.unsign & !(0x1 << (31 - i));
+                                    }
                                 }
-                            }
-                            ui.label(format!("{}", 31 - i));
-                        });
-                    }
+                                ui.label(format!("{}", 31 - i));
+                            });
+                        }
+                    });
                 });
             });
         });
