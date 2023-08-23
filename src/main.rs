@@ -65,7 +65,7 @@ impl Bits {
         window_operator(ctx, ui, &mut self.src0);
         window_operator(ctx, ui, &mut self.src1);
         window_operator(ctx, ui, &mut self.src2);
-        let instructions = ["mul_u32", "mul_i32", "add_u32", "add_i32"];
+        let instructions = ["mul_u32", "mul_i32", "add_u32", "add_i32", "fma_f32"];
         egui::ComboBox::from_label("Select Instruction!").show_index(
             ui,
             &mut self.selected,
@@ -100,6 +100,15 @@ impl Bits {
                 let c = a.wrapping_add(b);
                 unsafe {
                     self.dest.unsign = mem::transmute(c);
+                }
+            }
+            "fma_f32" => {
+                let a = self.src0.float;
+                let b = self.src1.float;
+                let c = self.src2.float;
+                let d = a.mul_add(b, c);
+                unsafe {
+                    self.dest.unsign = mem::transmute(d);
                 }
             }
             _ => {}
