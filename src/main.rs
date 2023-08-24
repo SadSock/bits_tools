@@ -18,7 +18,7 @@ fn main() -> Result<(), eframe::Error> {
 
 #[derive(PartialEq, Eq)]
 enum Panel {
-    Bits,
+    Rust,
     AMD,
 }
 
@@ -35,24 +35,8 @@ struct Operator {
     name: String,
 }
 
-// impl Default for Operator {
-//     fn default() -> Self {
-//         Self {
-//             bits: [false; 32],
-//             unsign: 0,
-//             sign: 0,
-//             float: 0.0,
-//             hex_str: "0x0".to_owned(),
-//             unsign_str: 0.to_string(),
-//             sign_str: 0.to_string(),
-//             float_str: 0.0.to_string(),
-//             name: _name,
-//         }
-//     }
-// }
-
 #[derive(Clone, PartialEq)]
-struct Bits {
+struct Rust {
     src0: Operator,
     src1: Operator,
     src2: Operator,
@@ -60,7 +44,7 @@ struct Bits {
     selected: usize,
 }
 
-impl Bits {
+impl Rust {
     fn draw_ui(&mut self, ctx: &egui::Context, ui: &mut egui::Ui) {
         window_operator(ctx, ui, &mut self.src0);
         window_operator(ctx, ui, &mut self.src1);
@@ -122,7 +106,7 @@ impl Bits {
     }
 }
 
-impl Default for Bits {
+impl Default for Rust {
     fn default() -> Self {
         Self {
             src0: Operator {
@@ -176,14 +160,14 @@ impl Default for Bits {
 
 struct MyApp {
     open_panel: Panel,
-    x86_panel: Bits,
+    rust_panel: Rust,
 }
 
 impl Default for MyApp {
     fn default() -> Self {
         Self {
-            open_panel: Panel::Bits,
-            x86_panel: Bits::default(),
+            open_panel: Panel::Rust,
+            rust_panel: Rust::default(),
         }
     }
 }
@@ -194,13 +178,13 @@ impl eframe::App for MyApp {
             ui.separator();
             ui.horizontal(|ui| {
                 ui.selectable_value(&mut self.open_panel, Panel::AMD, "AMD");
-                ui.selectable_value(&mut self.open_panel, Panel::Bits, "X86");
+                ui.selectable_value(&mut self.open_panel, Panel::Rust, "Rust");
             });
             ui.separator();
 
             match self.open_panel {
-                Panel::Bits => {
-                    self.x86_panel.draw_ui(ctx, ui);
+                Panel::Rust => {
+                    self.rust_panel.draw_ui(ctx, ui);
                 }
 
                 Panel::AMD => {}
@@ -295,22 +279,13 @@ fn window_operator(ctx: &egui::Context, ui: &mut egui::Ui, op: &mut Operator) {
 
     ui.horizontal(|ui| {
         let response = ui.add(egui::TextEdit::singleline(&mut op.hex_str).desired_width(100.0));
-        if response.changed() {
-            // …
-        }
-
+        if response.changed() {}
         let response = ui.add(egui::TextEdit::singleline(&mut op.unsign_str).desired_width(100.0));
-        if response.changed() {
-            // …
-        }
+        if response.changed() {}
         let response = ui.add(egui::TextEdit::singleline(&mut op.sign_str).desired_width(100.0));
-        if response.changed() {
-            // …
-        }
+        if response.changed() {}
         let response = ui.add(egui::TextEdit::singleline(&mut op.float_str).desired_width(350.0));
-        if response.changed() {
-            // …
-        }
+        if response.changed() {}
     });
     ui.horizontal(|ui| {
         if ui.button("-1").clicked() {
