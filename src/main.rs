@@ -1,4 +1,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
+#![feature(float_next_up_down)]
 
 use eframe::egui;
 use std::mem;
@@ -49,7 +50,7 @@ impl Rust {
         window_operator(ctx, ui, &mut self.src0);
         window_operator(ctx, ui, &mut self.src1);
         window_operator(ctx, ui, &mut self.src2);
-        let instructions = ["mul_u32", "mul_i32", "add_u32", "add_i32", "fma_f32"];
+        let instructions = ["fma_f32", "mul_u32", "mul_i32", "add_u32", "add_i32"];
         egui::ComboBox::from_label("Select Instruction!").show_index(
             ui,
             &mut self.selected,
@@ -289,12 +290,38 @@ fn window_operator(ctx: &egui::Context, ui: &mut egui::Ui, op: &mut Operator) {
     });
     ui.horizontal(|ui| {
         if ui.button("-1").clicked() {
-            unsafe {
-                op.unsign = mem::transmute(-1);
-            }
+            op.unsign = unsafe { mem::transmute(-1) };
         }
         if ui.button("0").clicked() {
             op.unsign = 0;
+        }
+
+        if ui.button("0.5").clicked() {
+            op.unsign = 0.5_f32.to_bits();
+        }
+
+        if ui.button("inf").clicked() {
+            op.unsign = f32::INFINITY.to_bits();
+        }
+
+        if ui.button("nan").clicked() {
+            op.unsign = f32::NAN.to_bits();
+        }
+
+        if ui.button("max").clicked() {
+            op.unsign = f32::MAX.to_bits();
+        }
+
+        if ui.button("min").clicked() {
+            op.unsign = f32::MIN.to_bits();
+        }
+
+        if ui.button("down").clicked() {
+            op.unsign = op.float.next_down().to_bits();
+        }
+
+        if ui.button("up").clicked() {
+            op.unsign = op.float.next_up().to_bits();
         }
 
         if ui.button("des").clicked() {
