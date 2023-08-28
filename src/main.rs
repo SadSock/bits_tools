@@ -159,15 +159,140 @@ impl Default for Rust {
     }
 }
 
+#[derive(Clone, PartialEq)]
+struct AMD {
+    src0: Operator,
+    src1: Operator,
+    src2: Operator,
+    dest: Operator,
+    selected: usize,
+}
+
+impl AMD {
+    fn draw_ui(&mut self, ctx: &egui::Context, ui: &mut egui::Ui) {
+        window_operator(ctx, ui, &mut self.src0);
+        window_operator(ctx, ui, &mut self.src1);
+        window_operator(ctx, ui, &mut self.src2);
+        let instructions = ["fma_f32", "mul_u32", "mul_i32", "add_u32", "add_i32"];
+        egui::ComboBox::from_label("Select Instruction!").show_index(
+            ui,
+            &mut self.selected,
+            instructions.len(),
+            |i| instructions[i],
+        );
+
+        match instructions[self.selected] {
+            "mul_u32" => {
+                let a = self.src0.unsign;
+                let b = self.src1.unsign;
+                let c = a.wrapping_mul(b);
+                self.dest.unsign = c;
+            }
+            "mul_i32" => {
+                let a = self.src0.sign;
+                let b = self.src1.sign;
+                let c = a.wrapping_mul(b);
+                unsafe {
+                    self.dest.unsign = mem::transmute(c);
+                }
+            }
+            "add_u32" => {
+                let a = self.src0.unsign;
+                let b = self.src1.unsign;
+                let c = a.wrapping_add(b);
+                self.dest.unsign = c;
+            }
+            "add_i32" => {
+                let a = self.src0.sign;
+                let b = self.src1.sign;
+                let c = a.wrapping_add(b);
+                unsafe {
+                    self.dest.unsign = mem::transmute(c);
+                }
+            }
+            "fma_f32" => {
+                let a = self.src0.float;
+                let b = self.src1.float;
+                let c = self.src2.float;
+                let d = a.mul_add(b, c);
+                unsafe {
+                    self.dest.unsign = mem::transmute(d);
+                }
+            }
+            _ => {}
+        }
+
+        window_operator(ctx, ui, &mut self.dest);
+        update_operator(&mut self.src1);
+        update_operator(&mut self.src0);
+        update_operator(&mut self.src2);
+        update_operator(&mut self.dest);
+    }
+}
+
+impl Default for AMD {
+    fn default() -> Self {
+        Self {
+            src0: Operator {
+                bits: [false; 32],
+                unsign: 0,
+                sign: 0,
+                float: 0.0,
+                hex_str: "0x0".to_owned(),
+                unsign_str: 0.to_string(),
+                sign_str: 0.to_string(),
+                float_str: 0.0.to_string(),
+                name: "src0".to_owned(),
+            },
+            src1: Operator {
+                bits: [false; 32],
+                unsign: 0,
+                sign: 0,
+                float: 0.0,
+                hex_str: "0x0".to_owned(),
+                unsign_str: 0.to_string(),
+                sign_str: 0.to_string(),
+                float_str: 0.0.to_string(),
+                name: "src1".to_owned(),
+            },
+            src2: Operator {
+                bits: [false; 32],
+                unsign: 0,
+                sign: 0,
+                float: 0.0,
+                hex_str: "0x0".to_owned(),
+                unsign_str: 0.to_string(),
+                sign_str: 0.to_string(),
+                float_str: 0.0.to_string(),
+                name: "src2".to_owned(),
+            },
+            dest: Operator {
+                bits: [false; 32],
+                unsign: 0,
+                sign: 0,
+                float: 0.0,
+                hex_str: "0x0".to_owned(),
+                unsign_str: 0.to_string(),
+                sign_str: 0.to_string(),
+                float_str: 0.0.to_string(),
+                name: "dest".to_owned(),
+            },
+            selected: 0,
+        }
+    }
+}
+
 struct MyApp {
-    open_panel: Panel,
+    panel: Panel,
+    amd_panel: AMD,
     rust_panel: Rust,
 }
 
 impl Default for MyApp {
     fn default() -> Self {
         Self {
-            open_panel: Panel::Rust,
+            panel: Panel::Rust,
+            amd_panel: AMD::default(),
             rust_panel: Rust::default(),
         }
     }
@@ -178,17 +303,19 @@ impl eframe::App for MyApp {
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.separator();
             ui.horizontal(|ui| {
-                ui.selectable_value(&mut self.open_panel, Panel::AMD, "AMD");
-                ui.selectable_value(&mut self.open_panel, Panel::Rust, "Rust");
+                ui.selectable_value(&mut self.panel, Panel::AMD, "AMD");
+                ui.selectable_value(&mut self.panel, Panel::Rust, "Rust");
             });
             ui.separator();
 
-            match self.open_panel {
+            match self.panel {
                 Panel::Rust => {
                     self.rust_panel.draw_ui(ctx, ui);
                 }
 
-                Panel::AMD => {}
+                Panel::AMD => {
+                    self.amd_panel.draw_ui(ctx, ui);
+                }
             }
         });
     }
@@ -286,7 +413,10 @@ fn window_operator(ctx: &egui::Context, ui: &mut egui::Ui, op: &mut Operator) {
         let response = ui.add(egui::TextEdit::singleline(&mut op.sign_str).desired_width(100.0));
         if response.changed() {}
         let response = ui.add(egui::TextEdit::singleline(&mut op.float_str).desired_width(350.0));
-        if response.changed() {}
+        if response.changed() {
+            let f: f32 = op.float_str.parse().unwrap();
+            op.unsign = unsafe { mem::transmute(f) };
+        }
     });
     ui.horizontal(|ui| {
         if ui.button("-1").clicked() {
@@ -300,6 +430,9 @@ fn window_operator(ctx: &egui::Context, ui: &mut egui::Ui, op: &mut Operator) {
             op.unsign = 0.5_f32.to_bits();
         }
 
+        if ui.button("1.0").clicked() {
+            op.unsign = 1.0_f32.to_bits();
+        }
         if ui.button("inf").clicked() {
             op.unsign = f32::INFINITY.to_bits();
         }
