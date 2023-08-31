@@ -1,5 +1,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
 #![feature(float_next_up_down)]
+#![feature(unchecked_math)]
 
 use eframe::egui;
 use std::mem;
@@ -364,7 +365,10 @@ fn window_operator(ctx: &egui::Context, ui: &mut egui::Ui, op: &mut Operator) {
             // exp bits
             ui.group(|ui| {
                 ui.vertical(|ui| {
-                    ui.label("exp");
+                    ui.label(format!(
+                        "exp     {}",
+                        op.unsign.wrapping_shl(1).wrapping_shr(24) as i32 - 127
+                    ));
                     ui.horizontal(|ui| {
                         for i in 1..9 {
                             ui.vertical(|ui| {
