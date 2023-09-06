@@ -20,16 +20,6 @@ fn main() -> Result<(), eframe::Error> {
     )
 }
 
-fn is_hex(s: &str) -> bool {
-    let re = Regex::new(r"^0x[0-9a-fA-F]{1,8}$").unwrap();
-    re.is_match(s)
-}
-
-fn is_float(s: &str) -> bool {
-    let re = Regex::new(r"-?\d+(\.\d+)?").unwrap();
-    re.is_match(s)
-}
-
 #[derive(PartialEq, Eq)]
 enum Panel {
     Rust,
@@ -39,13 +29,11 @@ enum Panel {
 #[derive(Clone, PartialEq)]
 struct Operator {
     bits: [bool; 32],
-    unsign: u32,
-    sign: i32,
-    float: f32,
+    u32: u32,
     hex_str: String,
-    unsign_str: String,
-    sign_str: String,
-    float_str: String,
+    u32_str: String,
+    i32_str: String,
+    f32_str: String,
     name: String,
 }
 
@@ -60,9 +48,6 @@ struct Rust {
 
 impl Rust {
     fn draw_ui(&mut self, ctx: &egui::Context, ui: &mut egui::Ui) {
-        window_operator(ctx, ui, &mut self.src0);
-        window_operator(ctx, ui, &mut self.src1);
-        window_operator(ctx, ui, &mut self.src2);
         let instructions = ["fma_f32", "mul_u32", "mul_i32", "add_u32", "add_i32"];
         egui::ComboBox::from_label("Select Instruction!").show_index(
             ui,
@@ -71,52 +56,53 @@ impl Rust {
             |i| instructions[i],
         );
 
+        window_operator(ctx, ui, &mut self.src0);
+        window_operator(ctx, ui, &mut self.src1);
+
+        if instructions[self.selected] == "fma_f32" {
+            window_operator(ctx, ui, &mut self.src2);
+        }
+
         match instructions[self.selected] {
-            "mul_u32" => {
-                let a = self.src0.unsign;
-                let b = self.src1.unsign;
-                let c = a.wrapping_mul(b);
-                self.dest.unsign = c;
-            }
-            "mul_i32" => {
-                let a = self.src0.sign;
-                let b = self.src1.sign;
-                let c = a.wrapping_mul(b);
-                unsafe {
-                    self.dest.unsign = mem::transmute(c);
-                }
-            }
-            "add_u32" => {
-                let a = self.src0.unsign;
-                let b = self.src1.unsign;
-                let c = a.wrapping_add(b);
-                self.dest.unsign = c;
-            }
-            "add_i32" => {
-                let a = self.src0.sign;
-                let b = self.src1.sign;
-                let c = a.wrapping_add(b);
-                unsafe {
-                    self.dest.unsign = mem::transmute(c);
-                }
-            }
+            // "mul_u32" => {
+            //     let a = self.src0.data;
+            //     let b = self.src1.data;
+            //     let c = a.wrapping_mul(b);
+            //     self.dest.data = c;
+            // }
+            // "mul_i32" => {
+            //     let a = self.src0.sign;
+            //     let b = self.src1.sign;
+            //     let c = a.wrapping_mul(b);
+            //     unsafe {
+            //         self.dest.data = mem::transmute(c);
+            //     }
+            // }
+            // "add_u32" => {
+            //     let a = self.src0.data;
+            //     let b = self.src1.data;
+            //     let c = a.wrapping_add(b);
+            //     self.dest.data = c;
+            // }
+            // "add_i32" => {
+            //     let a = self.src0.sign;
+            //     let b = self.src1.sign;
+            //     let c = a.wrapping_add(b);
+            //     unsafe {
+            //         self.dest.data = mem::transmute(c);
+            //     }
+            // }
             "fma_f32" => {
-                let a = self.src0.float;
-                let b = self.src1.float;
-                let c = self.src2.float;
+                let a: f32 = unsafe { mem::transmute(self.src0.u32) };
+                let b: f32 = unsafe { mem::transmute(self.src1.u32) };
+                let c: f32 = unsafe { mem::transmute(self.src2.u32) };
                 let d = a.mul_add(b, c);
-                unsafe {
-                    self.dest.unsign = mem::transmute(d);
-                }
+                self.dest.u32 = unsafe { mem::transmute(d) };
             }
             _ => {}
         }
 
         window_operator(ctx, ui, &mut self.dest);
-        update_operator(&mut self.src1);
-        update_operator(&mut self.src0);
-        update_operator(&mut self.src2);
-        update_operator(&mut self.dest);
     }
 }
 
@@ -125,46 +111,38 @@ impl Default for Rust {
         Self {
             src0: Operator {
                 bits: [false; 32],
-                unsign: 0,
-                sign: 0,
-                float: 0.0,
+                u32: 0,
                 hex_str: "0x0".to_owned(),
-                unsign_str: 0.to_string(),
-                sign_str: 0.to_string(),
-                float_str: 0.0.to_string(),
+                u32_str: 0.to_string(),
+                i32_str: 0.to_string(),
+                f32_str: 0.0.to_string(),
                 name: "src0".to_owned(),
             },
             src1: Operator {
                 bits: [false; 32],
-                unsign: 0,
-                sign: 0,
-                float: 0.0,
+                u32: 0,
                 hex_str: "0x0".to_owned(),
-                unsign_str: 0.to_string(),
-                sign_str: 0.to_string(),
-                float_str: 0.0.to_string(),
+                u32_str: 0.to_string(),
+                i32_str: 0.to_string(),
+                f32_str: 0.0.to_string(),
                 name: "src1".to_owned(),
             },
             src2: Operator {
                 bits: [false; 32],
-                unsign: 0,
-                sign: 0,
-                float: 0.0,
+                u32: 0,
                 hex_str: "0x0".to_owned(),
-                unsign_str: 0.to_string(),
-                sign_str: 0.to_string(),
-                float_str: 0.0.to_string(),
+                u32_str: 0.to_string(),
+                i32_str: 0.to_string(),
+                f32_str: 0.0.to_string(),
                 name: "src2".to_owned(),
             },
             dest: Operator {
                 bits: [false; 32],
-                unsign: 0,
-                sign: 0,
-                float: 0.0,
+                u32: 0,
                 hex_str: "0x0".to_owned(),
-                unsign_str: 0.to_string(),
-                sign_str: 0.to_string(),
-                float_str: 0.0.to_string(),
+                u32_str: 0.to_string(),
+                i32_str: 0.to_string(),
+                f32_str: 0.0.to_string(),
                 name: "dest".to_owned(),
             },
             selected: 0,
@@ -183,9 +161,6 @@ struct AMD {
 
 impl AMD {
     fn draw_ui(&mut self, ctx: &egui::Context, ui: &mut egui::Ui) {
-        window_operator(ctx, ui, &mut self.src0);
-        window_operator(ctx, ui, &mut self.src1);
-        window_operator(ctx, ui, &mut self.src2);
         let instructions = ["fma_f32"];
         egui::ComboBox::from_label("Select Instruction!").show_index(
             ui,
@@ -194,28 +169,31 @@ impl AMD {
             |i| instructions[i],
         );
 
+        window_operator(ctx, ui, &mut self.src0);
+        window_operator(ctx, ui, &mut self.src1);
+
+        if instructions[self.selected] == "fma_f32" {
+            window_operator(ctx, ui, &mut self.src2);
+        }
+
         match instructions[self.selected] {
             "fma_f32" => {
-                let a = self.src0.unsign;
-                let b = self.src1.unsign;
-                let c = self.src2.unsign;
+                let a = self.src0.u32;
+                let b = self.src1.u32;
+                let c = self.src2.u32;
 
                 unsafe {
                     let lib = libloading::Library::new("./librocm.so").unwrap();
                     let fma_f32: libloading::Symbol<unsafe extern "C" fn(u32, u32, u32) -> u32> =
                         lib.get(b"fma_f32").unwrap();
                     let d = fma_f32(a, b, c);
-                    self.dest.unsign = mem::transmute(d);
+                    self.dest.u32 = mem::transmute(d);
                 }
             }
             _ => {}
         }
 
         window_operator(ctx, ui, &mut self.dest);
-        update_operator(&mut self.src1);
-        update_operator(&mut self.src0);
-        update_operator(&mut self.src2);
-        update_operator(&mut self.dest);
     }
 }
 
@@ -224,46 +202,38 @@ impl Default for AMD {
         Self {
             src0: Operator {
                 bits: [false; 32],
-                unsign: 0,
-                sign: 0,
-                float: 0.0,
+                u32: 0,
                 hex_str: "0x0".to_owned(),
-                unsign_str: 0.to_string(),
-                sign_str: 0.to_string(),
-                float_str: 0.0.to_string(),
+                u32_str: 0.to_string(),
+                i32_str: 0.to_string(),
+                f32_str: 0.0.to_string(),
                 name: "src0".to_owned(),
             },
             src1: Operator {
                 bits: [false; 32],
-                unsign: 0,
-                sign: 0,
-                float: 0.0,
+                u32: 0,
                 hex_str: "0x0".to_owned(),
-                unsign_str: 0.to_string(),
-                sign_str: 0.to_string(),
-                float_str: 0.0.to_string(),
+                u32_str: 0.to_string(),
+                i32_str: 0.to_string(),
+                f32_str: 0.0.to_string(),
                 name: "src1".to_owned(),
             },
             src2: Operator {
                 bits: [false; 32],
-                unsign: 0,
-                sign: 0,
-                float: 0.0,
+                u32: 0,
                 hex_str: "0x0".to_owned(),
-                unsign_str: 0.to_string(),
-                sign_str: 0.to_string(),
-                float_str: 0.0.to_string(),
+                u32_str: 0.to_string(),
+                i32_str: 0.to_string(),
+                f32_str: 0.0.to_string(),
                 name: "src2".to_owned(),
             },
             dest: Operator {
                 bits: [false; 32],
-                unsign: 0,
-                sign: 0,
-                float: 0.0,
+                u32: 0,
                 hex_str: "0x0".to_owned(),
-                unsign_str: 0.to_string(),
-                sign_str: 0.to_string(),
-                float_str: 0.0.to_string(),
+                u32_str: 0.to_string(),
+                i32_str: 0.to_string(),
+                f32_str: 0.0.to_string(),
                 name: "dest".to_owned(),
             },
             selected: 0,
@@ -310,32 +280,6 @@ impl eframe::App for MyApp {
     }
 }
 
-fn update_operator(op: &mut Operator) {
-    unsafe {
-        op.sign = mem::transmute(op.unsign);
-        op.float = mem::transmute(op.unsign);
-    }
-
-    if is_hex(&op.hex_str) {
-        op.hex_str = format!("0x{:X}", op.unsign);
-    }
-
-    op.sign_str = format!("{}", op.sign);
-    op.unsign_str = format!("{}", op.unsign);
-
-    if is_float(&op.float_str) {
-        op.float_str = format!("{}", op.float);
-    }
-
-    for i in 0..32 {
-        if op.unsign & (0x1 << i) != 0 {
-            op.bits[i] = true;
-        } else {
-            op.bits[i] = false;
-        }
-    }
-}
-
 fn window_operator(ctx: &egui::Context, ui: &mut egui::Ui, op: &mut Operator) {
     ui.collapsing(op.name.to_owned(), |ui| {
         ui.horizontal(|ui| {
@@ -347,9 +291,9 @@ fn window_operator(ctx: &egui::Context, ui: &mut egui::Ui, op: &mut Operator) {
                         ui.vertical(|ui| {
                             if ui.checkbox(&mut op.bits[31 - i], "").clicked() {
                                 if op.bits[31 - i] {
-                                    op.unsign = op.unsign | (0x1 << (31 - i));
+                                    op.u32 = op.u32 | (0x1 << (31 - i));
                                 } else {
-                                    op.unsign = op.unsign & !(0x1 << (31 - i));
+                                    op.u32 = op.u32 & !(0x1 << (31 - i));
                                 }
                             }
                             ui.label(format!("{}", 31 - i));
@@ -363,16 +307,16 @@ fn window_operator(ctx: &egui::Context, ui: &mut egui::Ui, op: &mut Operator) {
                 ui.vertical(|ui| {
                     ui.label(format!(
                         "exp     {}",
-                        op.unsign.wrapping_shl(1).wrapping_shr(24) as i32 - 127
+                        op.u32.wrapping_shl(1).wrapping_shr(24) as i32 - 127
                     ));
                     ui.horizontal(|ui| {
                         for i in 1..9 {
                             ui.vertical(|ui| {
                                 if ui.checkbox(&mut op.bits[31 - i], "").clicked() {
                                     if op.bits[31 - i] {
-                                        op.unsign = op.unsign | (0x1 << (31 - i));
+                                        op.u32 = op.u32 | (0x1 << (31 - i));
                                     } else {
-                                        op.unsign = op.unsign & !(0x1 << (31 - i));
+                                        op.u32 = op.u32 & !(0x1 << (31 - i));
                                     }
                                 }
                                 ui.label(format!("{}", 31 - i));
@@ -391,9 +335,9 @@ fn window_operator(ctx: &egui::Context, ui: &mut egui::Ui, op: &mut Operator) {
                             ui.vertical(|ui| {
                                 if ui.checkbox(&mut op.bits[31 - i], "").clicked() {
                                     if op.bits[31 - i] {
-                                        op.unsign = op.unsign | (0x1 << (31 - i));
+                                        op.u32 = op.u32 | (0x1 << (31 - i));
                                     } else {
-                                        op.unsign = op.unsign & !(0x1 << (31 - i));
+                                        op.u32 = op.u32 & !(0x1 << (31 - i));
                                     }
                                 }
                                 ui.label(format!("{}", 31 - i));
@@ -403,100 +347,138 @@ fn window_operator(ctx: &egui::Context, ui: &mut egui::Ui, op: &mut Operator) {
                 });
             });
         });
-    });
 
-    ui.horizontal(|ui| {
-        let response = ui.add(egui::TextEdit::singleline(&mut op.hex_str).desired_width(100.0));
-        if response.changed() {
-            if is_hex(&op.hex_str) {
-                op.unsign = u32::from_str_radix(&op.hex_str[2..], 16).unwrap();
+        ui.horizontal(|ui| {
+            //hex text edit
+            let res_hex = ui.add(egui::TextEdit::singleline(&mut op.hex_str).desired_width(100.0));
+            if res_hex.changed() {
+                if let Ok(value) = u32::from_str_radix(&op.hex_str[2..], 16) {
+                    op.u32 = value;
+                }
             }
-        }
-        let response = ui.add(egui::TextEdit::singleline(&mut op.unsign_str).desired_width(100.0));
-        if response.changed() {
-            op.unsign = op.unsign_str.parse().unwrap();
-        }
-        let response = ui.add(egui::TextEdit::singleline(&mut op.sign_str).desired_width(100.0));
-        if response.changed() {
-            let u: i32 = op.sign_str.parse().unwrap();
-            op.unsign = unsafe { mem::transmute(u) };
-        }
-        let response = ui.add(egui::TextEdit::singleline(&mut op.float_str).desired_width(350.0));
-        if response.changed() {
-            if is_float(&op.float_str) {
-                let f: f32 = op.float_str.parse().unwrap();
-                op.unsign = unsafe { mem::transmute(f) };
+            if !res_hex.has_focus() {
+                op.hex_str = format!("0x{:X}", op.u32);
             }
-        }
-    });
-    ui.horizontal(|ui| {
-        if ui.button("-1").clicked() {
-            op.unsign = unsafe { mem::transmute(-1) };
-        }
-        if ui.button("0").clicked() {
-            op.unsign = 0;
-        }
 
-        if ui.button("0.5").clicked() {
-            op.unsign = 0.5_f32.to_bits();
-        }
-
-        if ui.button("1.0").clicked() {
-            op.unsign = 1.0_f32.to_bits();
-        }
-        if ui.button("inf").clicked() {
-            op.unsign = f32::INFINITY.to_bits();
-        }
-
-        if ui.button("nan").clicked() {
-            op.unsign = f32::NAN.to_bits();
-        }
-
-        if ui.button("max").clicked() {
-            op.unsign = f32::MAX.to_bits();
-        }
-
-        if ui.button("min").clicked() {
-            op.unsign = f32::MIN.to_bits();
-        }
-
-        if ui.button("down").clicked() {
-            op.unsign = op.float.next_down().to_bits();
-        }
-
-        if ui.button("up").clicked() {
-            op.unsign = op.float.next_up().to_bits();
-        }
-
-        if ui.button("des").clicked() {
-            if op.unsign == 0 {
-                op.unsign = u32::MAX;
-            } else {
-                op.unsign = op.unsign - 1;
+            // u32 text edit
+            let res_unsign =
+                ui.add(egui::TextEdit::singleline(&mut op.u32_str).desired_width(100.0));
+            if res_unsign.changed() {
+                if let Ok(value) = op.u32_str.parse::<u32>() {
+                    op.u32 = value;
+                }
             }
-        }
-        if ui.button("inc").clicked() {
-            if op.unsign == u32::MAX {
-                op.unsign = 0;
-            } else {
-                op.unsign = op.unsign + 1;
+            if !res_unsign.has_focus() {
+                op.u32_str = format!("{}", op.u32);
             }
-        }
 
-        if ui.button("lshr").clicked() {
-            op.unsign = op.unsign.checked_shr(1).unwrap();
-        }
-
-        if ui.button("lshl").clicked() {
-            op.unsign = op.unsign.checked_shl(1).unwrap();
-        }
-
-        if ui.button("ashr").clicked() {
-            unsafe {
-                let mut tmp: i32 = mem::transmute(op.unsign);
-                tmp = tmp.checked_shr(1).unwrap();
-                op.unsign = mem::transmute(tmp);
+            //i32 text edit
+            let res_sign = ui.add(egui::TextEdit::singleline(&mut op.i32_str).desired_width(100.0));
+            if res_sign.changed() {
+                if let Ok(value) = op.i32_str.parse::<i32>() {
+                    op.u32 = unsafe { mem::transmute(value) };
+                }
             }
-        }
+
+            if !res_sign.has_focus() {
+                let tmp_i32: i32 = unsafe { mem::transmute(op.u32) };
+                op.i32_str = tmp_i32.to_string();
+            }
+
+            //f32 text edit
+            let res_float =
+                ui.add(egui::TextEdit::singleline(&mut op.f32_str).desired_width(350.0));
+            if res_float.changed() {
+                if let Ok(value) = op.f32_str.parse::<f32>() {
+                    op.u32 = value.to_bits();
+                }
+            }
+
+            if !res_float.has_focus() {
+                let tmp_f32: f32 = unsafe { mem::transmute(op.u32) };
+                op.f32_str = tmp_f32.to_string();
+            }
+
+            //bits
+            for i in 0..32 {
+                if op.u32 & (0x1 << i) != 0 {
+                    op.bits[i] = true;
+                } else {
+                    op.bits[i] = false;
+                }
+            }
+        });
+        ui.horizontal(|ui| {
+            if ui.button("-1").clicked() {
+                op.u32 = unsafe { mem::transmute(-1) };
+            }
+            if ui.button("0").clicked() {
+                op.u32 = 0;
+            }
+
+            if ui.button("0.5").clicked() {
+                op.u32 = 0.5_f32.to_bits();
+            }
+
+            if ui.button("1.0").clicked() {
+                op.u32 = 1.0_f32.to_bits();
+            }
+            if ui.button("inf").clicked() {
+                op.u32 = f32::INFINITY.to_bits();
+            }
+
+            if ui.button("nan").clicked() {
+                op.u32 = f32::NAN.to_bits();
+            }
+
+            if ui.button("max").clicked() {
+                op.u32 = f32::MAX.to_bits();
+            }
+
+            if ui.button("min").clicked() {
+                op.u32 = f32::MIN.to_bits();
+            }
+
+            if ui.button("-1ulp").clicked() {
+                let tmp_f32: f32 = unsafe { mem::transmute(op.u32) };
+                op.u32 = tmp_f32.next_down().to_bits();
+            }
+
+            if ui.button("+1ulp").clicked() {
+                let tmp_f32: f32 = unsafe { mem::transmute(op.u32) };
+                op.u32 = tmp_f32.next_up().to_bits();
+            }
+
+            if ui.button("-1").clicked() {
+                if op.u32 == 0 {
+                    op.u32 = u32::MAX;
+                } else {
+                    op.u32 = op.u32 - 1;
+                }
+            }
+            if ui.button("+1").clicked() {
+                if op.u32 == u32::MAX {
+                    op.u32 = 0;
+                } else {
+                    op.u32 = op.u32 + 1;
+                }
+            }
+
+            if ui.button("lshr").clicked() {
+                op.u32 = op.u32.checked_shr(1).unwrap();
+            }
+
+            if ui.button("lshl").clicked() {
+                op.u32 = op.u32.checked_shl(1).unwrap();
+            }
+
+            if ui.button("ashr").clicked() {
+                unsafe {
+                    let mut tmp: i32 = mem::transmute(op.u32);
+                    tmp = tmp.checked_shr(1).unwrap();
+                    op.u32 = mem::transmute(tmp);
+                }
+            }
+        });
     });
 }
