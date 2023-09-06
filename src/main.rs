@@ -3,8 +3,6 @@
 #![feature(unchecked_math)]
 
 use eframe::egui;
-use libloading::{Library, Symbol};
-use regex::Regex;
 use std::mem;
 
 fn main() -> Result<(), eframe::Error> {
