@@ -3,6 +3,7 @@
 #![feature(unchecked_math)]
 
 use eframe::egui;
+use libloading::{Library, Symbol};
 use regex::Regex;
 use std::mem;
 
@@ -21,6 +22,11 @@ fn main() -> Result<(), eframe::Error> {
 
 fn is_hex(s: &str) -> bool {
     let re = Regex::new(r"^0x[0-9a-fA-F]{1,8}$").unwrap();
+    re.is_match(s)
+}
+
+fn is_float(s: &str) -> bool {
+    let re = Regex::new(r"-?\d+(\.\d+)?").unwrap();
     re.is_match(s)
 }
 
@@ -180,7 +186,7 @@ impl AMD {
         window_operator(ctx, ui, &mut self.src0);
         window_operator(ctx, ui, &mut self.src1);
         window_operator(ctx, ui, &mut self.src2);
-        let instructions = ["fma_f32", "mul_u32", "mul_i32", "add_u32", "add_i32"];
+        let instructions = ["fma_f32"];
         egui::ComboBox::from_label("Select Instruction!").show_index(
             ui,
             &mut self.selected,
@@ -189,40 +195,16 @@ impl AMD {
         );
 
         match instructions[self.selected] {
-            "mul_u32" => {
-                let a = self.src0.unsign;
-                let b = self.src1.unsign;
-                let c = a.wrapping_mul(b);
-                self.dest.unsign = c;
-            }
-            "mul_i32" => {
-                let a = self.src0.sign;
-                let b = self.src1.sign;
-                let c = a.wrapping_mul(b);
-                unsafe {
-                    self.dest.unsign = mem::transmute(c);
-                }
-            }
-            "add_u32" => {
-                let a = self.src0.unsign;
-                let b = self.src1.unsign;
-                let c = a.wrapping_add(b);
-                self.dest.unsign = c;
-            }
-            "add_i32" => {
-                let a = self.src0.sign;
-                let b = self.src1.sign;
-                let c = a.wrapping_add(b);
-                unsafe {
-                    self.dest.unsign = mem::transmute(c);
-                }
-            }
             "fma_f32" => {
-                let a = self.src0.float;
-                let b = self.src1.float;
-                let c = self.src2.float;
-                let d = a.mul_add(b, c);
+                let a = self.src0.unsign;
+                let b = self.src1.unsign;
+                let c = self.src2.unsign;
+
                 unsafe {
+                    let lib = libloading::Library::new("./librocm.so").unwrap();
+                    let fma_f32: libloading::Symbol<unsafe extern "C" fn(u32, u32, u32) -> u32> =
+                        lib.get(b"fma_f32").unwrap();
+                    let d = fma_f32(a, b, c);
                     self.dest.unsign = mem::transmute(d);
                 }
             }
@@ -340,7 +322,11 @@ fn update_operator(op: &mut Operator) {
 
     op.sign_str = format!("{}", op.sign);
     op.unsign_str = format!("{}", op.unsign);
-    op.float_str = format!("{}", op.float);
+
+    if is_float(&op.float_str) {
+        op.float_str = format!("{}", op.float);
+    }
+
     for i in 0..32 {
         if op.unsign & (0x1 << i) != 0 {
             op.bits[i] = true;
@@ -437,8 +423,10 @@ fn window_operator(ctx: &egui::Context, ui: &mut egui::Ui, op: &mut Operator) {
         }
         let response = ui.add(egui::TextEdit::singleline(&mut op.float_str).desired_width(350.0));
         if response.changed() {
-            let f: f32 = op.float_str.parse().unwrap();
-            op.unsign = unsafe { mem::transmute(f) };
+            if is_float(&op.float_str) {
+                let f: f32 = op.float_str.parse().unwrap();
+                op.unsign = unsafe { mem::transmute(f) };
+            }
         }
     });
     ui.horizontal(|ui| {
