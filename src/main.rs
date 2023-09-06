@@ -3,12 +3,13 @@
 #![feature(unchecked_math)]
 
 use eframe::egui;
+use regex::Regex;
 use std::mem;
 
 fn main() -> Result<(), eframe::Error> {
     env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
     let options = eframe::NativeOptions {
-        initial_window_size: Some(egui::vec2(900.0, 500.0)),
+        initial_window_size: Some(egui::vec2(900.0, 600.0)),
         ..Default::default()
     };
     eframe::run_native(
@@ -16,6 +17,11 @@ fn main() -> Result<(), eframe::Error> {
         options,
         Box::new(|_cc| Box::<MyApp>::default()),
     )
+}
+
+fn is_hex(s: &str) -> bool {
+    let re = Regex::new(r"^0x[0-9a-fA-F]{1,8}$").unwrap();
+    re.is_match(s)
 }
 
 #[derive(PartialEq, Eq)]
@@ -327,7 +333,11 @@ fn update_operator(op: &mut Operator) {
         op.sign = mem::transmute(op.unsign);
         op.float = mem::transmute(op.unsign);
     }
-    op.hex_str = format!("0x{:X}", op.unsign);
+
+    if is_hex(&op.hex_str) {
+        op.hex_str = format!("0x{:X}", op.unsign);
+    }
+
     op.sign_str = format!("{}", op.sign);
     op.unsign_str = format!("{}", op.unsign);
     op.float_str = format!("{}", op.float);
@@ -411,11 +421,20 @@ fn window_operator(ctx: &egui::Context, ui: &mut egui::Ui, op: &mut Operator) {
 
     ui.horizontal(|ui| {
         let response = ui.add(egui::TextEdit::singleline(&mut op.hex_str).desired_width(100.0));
-        if response.changed() {}
+        if response.changed() {
+            if is_hex(&op.hex_str) {
+                op.unsign = u32::from_str_radix(&op.hex_str[2..], 16).unwrap();
+            }
+        }
         let response = ui.add(egui::TextEdit::singleline(&mut op.unsign_str).desired_width(100.0));
-        if response.changed() {}
+        if response.changed() {
+            op.unsign = op.unsign_str.parse().unwrap();
+        }
         let response = ui.add(egui::TextEdit::singleline(&mut op.sign_str).desired_width(100.0));
-        if response.changed() {}
+        if response.changed() {
+            let u: i32 = op.sign_str.parse().unwrap();
+            op.unsign = unsafe { mem::transmute(u) };
+        }
         let response = ui.add(egui::TextEdit::singleline(&mut op.float_str).desired_width(350.0));
         if response.changed() {
             let f: f32 = op.float_str.parse().unwrap();
