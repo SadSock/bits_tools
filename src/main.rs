@@ -3,6 +3,7 @@
 #![feature(unchecked_math)]
 
 use eframe::egui;
+use egui::Vec2;
 use std::mem;
 
 fn main() -> Result<(), eframe::Error> {
@@ -54,11 +55,11 @@ impl Rust {
             |i| instructions[i],
         );
 
-        draw_src(ctx, ui, &mut self.src0);
-        draw_src(ctx, ui, &mut self.src1);
+        draw_src_b32(ctx, ui, &mut self.src0);
+        draw_src_b32(ctx, ui, &mut self.src1);
 
         if instructions[self.selected] == "fma_f32" {
-            draw_src(ctx, ui, &mut self.src2);
+            draw_src_b32(ctx, ui, &mut self.src2);
         }
 
         match instructions[self.selected] {
@@ -163,11 +164,11 @@ impl AMD {
             |i| instructions[i],
         );
 
-        draw_src(ctx, ui, &mut self.src0);
-        draw_src(ctx, ui, &mut self.src1);
+        draw_src_b32(ctx, ui, &mut self.src0);
+        draw_src_b32(ctx, ui, &mut self.src1);
 
         if instructions[self.selected] == "v_fma_f32" {
-            draw_src(ctx, ui, &mut self.src2);
+            draw_src_b32(ctx, ui, &mut self.src2);
         }
 
         let lib = unsafe { libloading::Library::new("./librocm.so").unwrap() };
@@ -307,13 +308,14 @@ impl eframe::App for MyApp {
     }
 }
 
-fn draw_src(ctx: &egui::Context, ui: &mut egui::Ui, op: &mut Operator) {
+fn draw_src_b32(ctx: &egui::Context, ui: &mut egui::Ui, op: &mut Operator) {
     ui.collapsing(op.name.to_owned(), |ui| {
         ui.horizontal(|ui| {
             // signed bit
             ui.group(|ui| {
                 ui.vertical(|ui| {
                     ui.label("sign");
+                    ui.spacing_mut().item_spacing = Vec2::ZERO;
                     for i in 0..1 {
                         ui.vertical(|ui| {
                             if ui.checkbox(&mut op.bits[31 - i], "").clicked() {
@@ -337,6 +339,7 @@ fn draw_src(ctx: &egui::Context, ui: &mut egui::Ui, op: &mut Operator) {
                         op.u32.wrapping_shl(1).wrapping_shr(24) as i32 - 127
                     ));
                     ui.horizontal(|ui| {
+                        ui.spacing_mut().item_spacing = Vec2::ZERO;
                         for i in 1..9 {
                             ui.vertical(|ui| {
                                 if ui.checkbox(&mut op.bits[31 - i], "").clicked() {
@@ -358,6 +361,7 @@ fn draw_src(ctx: &egui::Context, ui: &mut egui::Ui, op: &mut Operator) {
                 ui.vertical(|ui| {
                     ui.label("mantissa");
                     ui.horizontal(|ui| {
+                        ui.spacing_mut().item_spacing = Vec2::ZERO;
                         for i in 9..32 {
                             ui.vertical(|ui| {
                                 if ui.checkbox(&mut op.bits[31 - i], "").clicked() {
@@ -377,7 +381,7 @@ fn draw_src(ctx: &egui::Context, ui: &mut egui::Ui, op: &mut Operator) {
 
         ui.horizontal(|ui| {
             //hex text edit
-            let res_hex = ui.add(egui::TextEdit::singleline(&mut op.hex_str).desired_width(100.0));
+            let res_hex = ui.add(egui::TextEdit::singleline(&mut op.hex_str).desired_width(80.0));
             if res_hex.changed() {
                 if let Ok(value) = u32::from_str_radix(&op.hex_str[2..], 16) {
                     op.u32 = value;
@@ -389,7 +393,7 @@ fn draw_src(ctx: &egui::Context, ui: &mut egui::Ui, op: &mut Operator) {
 
             // u32 text edit
             let res_unsign =
-                ui.add(egui::TextEdit::singleline(&mut op.u32_str).desired_width(100.0));
+                ui.add(egui::TextEdit::singleline(&mut op.u32_str).desired_width(80.0));
             if res_unsign.changed() {
                 if let Ok(value) = op.u32_str.parse::<u32>() {
                     op.u32 = value;
@@ -400,7 +404,7 @@ fn draw_src(ctx: &egui::Context, ui: &mut egui::Ui, op: &mut Operator) {
             }
 
             //i32 text edit
-            let res_sign = ui.add(egui::TextEdit::singleline(&mut op.i32_str).desired_width(100.0));
+            let res_sign = ui.add(egui::TextEdit::singleline(&mut op.i32_str).desired_width(80.0));
             if res_sign.changed() {
                 if let Ok(value) = op.i32_str.parse::<i32>() {
                     op.u32 = unsafe { mem::transmute(value) };
@@ -517,6 +521,7 @@ fn draw_dest(ctx: &egui::Context, ui: &mut egui::Ui, op: &mut Operator) {
             ui.group(|ui| {
                 ui.vertical(|ui| {
                     ui.label("sign");
+                    ui.spacing_mut().item_spacing = Vec2::ZERO;
                     for i in 0..1 {
                         ui.vertical(|ui| {
                             ui.add_enabled(false, egui::Checkbox::new(&mut op.bits[31 - i], ""));
@@ -534,6 +539,7 @@ fn draw_dest(ctx: &egui::Context, ui: &mut egui::Ui, op: &mut Operator) {
                         op.u32.wrapping_shl(1).wrapping_shr(24) as i32 - 127
                     ));
                     ui.horizontal(|ui| {
+                        ui.spacing_mut().item_spacing = Vec2::ZERO;
                         for i in 1..9 {
                             ui.vertical(|ui| {
                                 ui.add_enabled(
@@ -552,6 +558,7 @@ fn draw_dest(ctx: &egui::Context, ui: &mut egui::Ui, op: &mut Operator) {
                 ui.vertical(|ui| {
                     ui.label("mantissa");
                     ui.horizontal(|ui| {
+                        ui.spacing_mut().item_spacing = Vec2::ZERO;
                         for i in 9..32 {
                             ui.vertical(|ui| {
                                 ui.add_enabled(
@@ -570,7 +577,7 @@ fn draw_dest(ctx: &egui::Context, ui: &mut egui::Ui, op: &mut Operator) {
             //hex text edit
             let res_hex = ui.add_enabled(
                 false,
-                egui::TextEdit::singleline(&mut op.hex_str).desired_width(100.0),
+                egui::TextEdit::singleline(&mut op.hex_str).desired_width(80.0),
             );
             if !res_hex.has_focus() {
                 op.hex_str = format!("0x{:X}", op.u32);
@@ -579,7 +586,7 @@ fn draw_dest(ctx: &egui::Context, ui: &mut egui::Ui, op: &mut Operator) {
             // u32 text edit
             let res_unsign = ui.add_enabled(
                 false,
-                egui::TextEdit::singleline(&mut op.u32_str).desired_width(100.0),
+                egui::TextEdit::singleline(&mut op.u32_str).desired_width(80.0),
             );
             if !res_unsign.has_focus() {
                 op.u32_str = format!("{}", op.u32);
@@ -588,7 +595,7 @@ fn draw_dest(ctx: &egui::Context, ui: &mut egui::Ui, op: &mut Operator) {
             //i32 text edit
             let res_sign = ui.add_enabled(
                 false,
-                egui::TextEdit::singleline(&mut op.i32_str).desired_width(100.0),
+                egui::TextEdit::singleline(&mut op.i32_str).desired_width(80.0),
             );
 
             if !res_sign.has_focus() {
