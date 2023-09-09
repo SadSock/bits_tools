@@ -3,6 +3,7 @@
 #![feature(unchecked_math)]
 
 use eframe::egui;
+use eframe::egui::{Color32, Response, Style, Ui, Widget};
 use egui::Vec2;
 use std::mem;
 
@@ -340,6 +341,9 @@ fn draw_src_b32(ctx: &egui::Context, ui: &mut egui::Ui, op: &mut Operator) {
                     ));
                     ui.horizontal(|ui| {
                         ui.spacing_mut().item_spacing = Vec2::ZERO;
+                        ui.visuals_mut().widgets.active.bg_fill = Color32::RED;
+                        ui.visuals_mut().widgets.active.weak_bg_fill = Color32::RED;
+                        ui.visuals_mut().widgets.noninteractive.bg_fill = Color32::RED;
                         for i in 1..9 {
                             ui.vertical(|ui| {
                                 if ui.checkbox(&mut op.bits[31 - i], "").clicked() {
