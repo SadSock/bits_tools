@@ -4,7 +4,7 @@
 
 use eframe::egui;
 use eframe::egui::{Color32, Response, Style, Ui, Widget};
-use egui::Vec2;
+use egui::{Align, FontId, Label, RichText, TextFormat, Vec2, Visuals};
 use std::mem;
 
 fn main() -> Result<(), eframe::Error> {
@@ -289,6 +289,9 @@ impl Default for MyApp {
 impl eframe::App for MyApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         egui::CentralPanel::default().show(ctx, |ui| {
+            // use light theme
+            ui.ctx().set_visuals(Visuals::light());
+
             ui.separator();
             ui.horizontal(|ui| {
                 ui.selectable_value(&mut self.panel, Panel::AMD, "AMD");
@@ -313,76 +316,168 @@ fn draw_src_b32(ctx: &egui::Context, ui: &mut egui::Ui, op: &mut Operator) {
     ui.collapsing(op.name.to_owned(), |ui| {
         ui.horizontal(|ui| {
             // signed bit
-            ui.group(|ui| {
+            ui.spacing_mut().item_spacing = Vec2::ZERO;
+            let sign_color = Color32::from_rgb(187, 187, 255);
+            ui.visuals_mut().widgets.active.bg_fill = sign_color;
+            ui.style_mut().visuals.widgets.noninteractive.bg_fill = sign_color;
+            ui.style_mut().visuals.widgets.inactive.bg_fill = sign_color;
+            ui.style_mut().visuals.widgets.hovered.bg_fill = sign_color;
+            for i in 0..1 {
                 ui.vertical(|ui| {
-                    ui.label("sign");
-                    ui.spacing_mut().item_spacing = Vec2::ZERO;
-                    for i in 0..1 {
-                        ui.vertical(|ui| {
-                            if ui.checkbox(&mut op.bits[31 - i], "").clicked() {
-                                if op.bits[31 - i] {
-                                    op.u32 = op.u32 | (0x1 << (31 - i));
-                                } else {
-                                    op.u32 = op.u32 & !(0x1 << (31 - i));
-                                }
-                            }
-                            ui.label(format!("{}", 31 - i));
-                        });
+                    ui.label(format!("{}", 31 - i));
+                    let res_checkbox = ui.add(egui::Checkbox::without_text(&mut op.bits[31 - i]));
+                    if res_checkbox.clicked() {
+                        if op.bits[31 - i] {
+                            op.u32 = op.u32 | (0x1 << (31 - i));
+                        } else {
+                            op.u32 = op.u32 & !(0x1 << (31 - i));
+                        }
                     }
-                })
-            });
+                });
+            }
 
             // exp bits
-            ui.group(|ui| {
+            ui.spacing_mut().item_spacing = Vec2::ZERO;
+            let sign_color = Color32::from_rgb(187, 255, 187);
+            ui.visuals_mut().widgets.active.bg_fill = sign_color;
+            ui.style_mut().visuals.widgets.noninteractive.bg_fill = sign_color;
+            ui.style_mut().visuals.widgets.inactive.bg_fill = sign_color;
+            ui.style_mut().visuals.widgets.hovered.bg_fill = sign_color;
+            for i in 1..9 {
                 ui.vertical(|ui| {
-                    ui.label(format!(
-                        "exp     {}",
-                        op.u32.wrapping_shl(1).wrapping_shr(24) as i32 - 127
-                    ));
-                    ui.horizontal(|ui| {
-                        ui.spacing_mut().item_spacing = Vec2::ZERO;
-                        ui.visuals_mut().widgets.active.bg_fill = Color32::RED;
-                        ui.visuals_mut().widgets.active.weak_bg_fill = Color32::RED;
-                        ui.visuals_mut().widgets.noninteractive.bg_fill = Color32::RED;
-                        for i in 1..9 {
-                            ui.vertical(|ui| {
-                                if ui.checkbox(&mut op.bits[31 - i], "").clicked() {
-                                    if op.bits[31 - i] {
-                                        op.u32 = op.u32 | (0x1 << (31 - i));
-                                    } else {
-                                        op.u32 = op.u32 & !(0x1 << (31 - i));
-                                    }
-                                }
-                                ui.label(format!("{}", 31 - i));
-                            });
+                    ui.label(format!("{}", 31 - i));
+                    let res_checkbox = ui.add(egui::Checkbox::without_text(&mut op.bits[31 - i]));
+                    if res_checkbox.clicked() {
+                        if op.bits[31 - i] {
+                            op.u32 = op.u32 | (0x1 << (31 - i));
+                        } else {
+                            op.u32 = op.u32 & !(0x1 << (31 - i));
                         }
-                    });
+                    }
+                    if res_checkbox.hovered() {
+                        let mut exp = op.u32.wrapping_shl(1).wrapping_shr(24) as i32;
+                        if exp == 0 {
+                            exp = -126;
+                        } else {
+                            exp = exp - 127;
+                        }
+                        res_checkbox.on_hover_text("exp: ".to_string() + &exp.to_string());
+                    }
                 });
-            });
+            }
 
             // exp mantissa
-            ui.group(|ui| {
+            ui.spacing_mut().item_spacing = Vec2::ZERO;
+            let sign_color = Color32::from_rgb(255, 187, 187);
+            ui.visuals_mut().widgets.active.bg_fill = sign_color;
+            ui.style_mut().visuals.widgets.noninteractive.bg_fill = sign_color;
+            ui.style_mut().visuals.widgets.inactive.bg_fill = sign_color;
+            ui.style_mut().visuals.widgets.hovered.bg_fill = sign_color;
+            for i in 9..32 {
                 ui.vertical(|ui| {
-                    ui.label("mantissa");
-                    ui.horizontal(|ui| {
-                        ui.spacing_mut().item_spacing = Vec2::ZERO;
-                        for i in 9..32 {
-                            ui.vertical(|ui| {
-                                if ui.checkbox(&mut op.bits[31 - i], "").clicked() {
-                                    if op.bits[31 - i] {
-                                        op.u32 = op.u32 | (0x1 << (31 - i));
-                                    } else {
-                                        op.u32 = op.u32 & !(0x1 << (31 - i));
-                                    }
-                                }
-                                ui.label(format!("{}", 31 - i));
-                            });
+                    ui.label(format!("{}", 31 - i));
+                    let res_checkbox = ui.add(egui::Checkbox::without_text(&mut op.bits[31 - i]));
+                    if res_checkbox.clicked() {
+                        if op.bits[31 - i] {
+                            op.u32 = op.u32 | (0x1 << (31 - i));
+                        } else {
+                            op.u32 = op.u32 & !(0x1 << (31 - i));
                         }
-                    });
+                    }
+                    // if res_checkbox.hovered() {
+                    //     let mut mantissa_u32 = op.u32;
+                    //     let mut mantissa_f32: f32 = unsafe { mem::transmute(mantissa_u32) };
+
+                    //     if mantissa_f32.is_normal() {
+                    //         mantissa_u32 = mantissa_u32 | 0x3F000000;
+                    //     }
+
+                    //     mantissa_f32 = unsafe { mem::transmute(mantissa_u32) };
+
+                    //     res_checkbox
+                    //         .on_hover_text("mantissa: ".to_string() + &mantissa_f32.to_string());
+                    // }
                 });
-            });
+            }
         });
 
+        // use egui::text::LayoutJob;
+        // let mut job = LayoutJob::default();
+
+        // let mut sign = "+";
+        // if op.bits[31] == true {
+        //     sign = "-";
+        // }
+
+        // job.append(
+        //     sign,
+        //     0.0,
+        //     TextFormat {
+        //         background: Color32::from_rgb(187, 187, 255),
+        //         ..Default::default()
+        //     },
+        // );
+
+        // job.append(
+        //     "1  x  ",
+        //     0.0,
+        //     TextFormat {
+        //         // background: Color32::from_rgb(187, 187, 255),
+        //         ..Default::default()
+        //     },
+        // );
+
+        // let mut exp = op.u32.wrapping_shl(1).wrapping_shr(24) as i32;
+        // if exp == 0 {
+        //     exp = -126;
+        // } else {
+        //     exp = exp - 127;
+        // }
+
+        // // let op_f32: f32 = unsafe { mem::transmute(op.u32) };
+        // // let mut exp: i32 = op_f32.log2().floor() as i32;
+
+        // job.append(
+        //     "2",
+        //     0.0,
+        //     TextFormat {
+        //         // background: Color32::from_rgb(187, 255, 187),
+        //         ..Default::default()
+        //     },
+        // );
+        // job.append(
+        //     &exp.to_string(),
+        //     0.0,
+        //     TextFormat {
+        //         font_id: FontId::proportional(10.0),
+        //         background: Color32::from_rgb(187, 255, 187),
+        //         valign: Align::TOP,
+        //         ..Default::default()
+        //     },
+        // );
+
+        // job.append(
+        //     "  x  ",
+        //     0.0,
+        //     TextFormat {
+        //         // background: Color32::from_rgb(187, 187, 255),
+        //         ..Default::default()
+        //     },
+        // );
+
+        // let op_f32: f32 = unsafe { mem::transmute(op.u32) };
+        // let mantissa: f32 = op_f32 / 2.0_f32.powi(exp);
+
+        // job.append(
+        //     &mantissa.to_string(),
+        //     0.0,
+        //     TextFormat {
+        //         background: Color32::from_rgb(255, 187, 187),
+        //         ..Default::default()
+        //     },
+        // );
+
+        // ui.label(job);
         ui.horizontal(|ui| {
             //hex text edit
             let res_hex = ui.add(egui::TextEdit::singleline(&mut op.hex_str).desired_width(80.0));
