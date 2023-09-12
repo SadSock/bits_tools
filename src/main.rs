@@ -974,7 +974,7 @@ fn draw_src_b32(ctx: &egui::Context, ui: &mut egui::Ui, op: &mut OpB32) {
     // });
 }
 
-fn draw_src_b64(ctx: &egui::Context, ui: &mut egui::Ui, op: &mut OpB64) {
+fn draw_src_b64(_ctx: &egui::Context, ui: &mut egui::Ui, op: &mut OpB64) {
     // ui.collapsing(op.name.to_owned(), |ui| {
     ui.horizontal(|ui| {
         // signed bit
@@ -1146,9 +1146,12 @@ fn draw_src_b64(ctx: &egui::Context, ui: &mut egui::Ui, op: &mut OpB64) {
     );
 
     ui.label(job);
-    ui.horizontal(|ui| {
+
+    egui::Grid::new("some_unique_id").show(ui, |ui| {
         //hex text edit
-        let res_hex = ui.add(egui::TextEdit::singleline(&mut op.hex_str).desired_width(80.0));
+        ui.label("Hexadecimal Representation");
+        let res_hex = ui.add(egui::TextEdit::singleline(&mut op.hex_str).
+            desired_width(350.0));
         if res_hex.changed() {
             if let Ok(value) = u64::from_str_radix(&op.hex_str[2..], 16) {
                 op.u64 = value;
@@ -1157,9 +1160,11 @@ fn draw_src_b64(ctx: &egui::Context, ui: &mut egui::Ui, op: &mut OpB64) {
         if !res_hex.has_focus() {
             op.hex_str = format!("0x{:X}", op.u64);
         }
+        ui.end_row();
 
         // u32 text edit
-        let res_unsign = ui.add(egui::TextEdit::singleline(&mut op.u64_str).desired_width(80.0));
+        ui.label("Unsigned Integer Representation");
+        let res_unsign = ui.add(egui::TextEdit::singleline(&mut op.u64_str).desired_width(350.0));
         if res_unsign.changed() {
             if let Ok(value) = op.u64_str.parse::<u64>() {
                 op.u64 = value;
@@ -1168,9 +1173,10 @@ fn draw_src_b64(ctx: &egui::Context, ui: &mut egui::Ui, op: &mut OpB64) {
         if !res_unsign.has_focus() {
             op.u64_str = format!("{}", op.u64);
         }
-
+        ui.end_row();
         //i32 text edit
-        let res_sign = ui.add(egui::TextEdit::singleline(&mut op.i64_str).desired_width(80.0));
+        ui.label("Signed Integer Representation");
+        let res_sign = ui.add(egui::TextEdit::singleline(&mut op.i64_str).desired_width(350.0));
         if res_sign.changed() {
             if let Ok(value) = op.i64_str.parse::<i64>() {
                 op.u64 = unsafe { mem::transmute(value) };
@@ -1181,8 +1187,9 @@ fn draw_src_b64(ctx: &egui::Context, ui: &mut egui::Ui, op: &mut OpB64) {
             let tmp_i64: i64 = unsafe { mem::transmute(op.u64) };
             op.i64_str = tmp_i64.to_string();
         }
-
+        ui.end_row();
         //f32 text edit
+        ui.label("Float Representation");
         let res_float = ui.add(egui::TextEdit::singleline(&mut op.f64_str).desired_width(350.0));
         if res_float.changed() {
             if let Ok(value) = op.f64_str.parse::<f64>() {
@@ -1194,31 +1201,19 @@ fn draw_src_b64(ctx: &egui::Context, ui: &mut egui::Ui, op: &mut OpB64) {
             let tmp_f64: f64 = unsafe { mem::transmute(op.u64) };
             op.f64_str = tmp_f64.to_string();
         }
-
-        //bits
-        for i in 0..64 {
-            if op.u64 & (0x1 << i) != 0 {
-                op.bits[i] = true;
-            } else {
-                op.bits[i] = false;
-            }
-        }
+        ui.end_row();
     });
+
+    //bits
+    for i in 0..64 {
+        if op.u64 & (0x1 << i) != 0 {
+            op.bits[i] = true;
+        } else {
+            op.bits[i] = false;
+        }
+    }
+
     ui.horizontal(|ui| {
-        if ui.button("-1").clicked() {
-            op.u64 = unsafe { mem::transmute(-1_i64) };
-        }
-        if ui.button("0").clicked() {
-            op.u64 = 0;
-        }
-
-        if ui.button("0.5").clicked() {
-            op.u64 = 0.5_f64.to_bits();
-        }
-
-        if ui.button("1.0").clicked() {
-            op.u64 = 1.0_f64.to_bits();
-        }
         if ui.button("inf").clicked() {
             op.u64 = f64::INFINITY.to_bits();
         }
