@@ -1147,11 +1147,11 @@ fn draw_src_b64(_ctx: &egui::Context, ui: &mut egui::Ui, op: &mut OpB64) {
 
     ui.label(job);
 
-    egui::Grid::new("some_unique_id").show(ui, |ui| {
+    egui::Grid::new("some_unique_id").num_columns(2).show(ui, |ui| {
         //hex text edit
         ui.label("Hexadecimal Representation");
         let res_hex = ui.add(egui::TextEdit::singleline(&mut op.hex_str).
-            desired_width(350.0));
+            desired_width(375.0));
         if res_hex.changed() {
             if let Ok(value) = u64::from_str_radix(&op.hex_str[2..], 16) {
                 op.u64 = value;
@@ -1164,7 +1164,7 @@ fn draw_src_b64(_ctx: &egui::Context, ui: &mut egui::Ui, op: &mut OpB64) {
 
         // u32 text edit
         ui.label("Unsigned Integer Representation");
-        let res_unsign = ui.add(egui::TextEdit::singleline(&mut op.u64_str).desired_width(350.0));
+        let res_unsign = ui.add(egui::TextEdit::singleline(&mut op.u64_str).desired_width(375.0));
         if res_unsign.changed() {
             if let Ok(value) = op.u64_str.parse::<u64>() {
                 op.u64 = value;
@@ -1176,7 +1176,7 @@ fn draw_src_b64(_ctx: &egui::Context, ui: &mut egui::Ui, op: &mut OpB64) {
         ui.end_row();
         //i32 text edit
         ui.label("Signed Integer Representation");
-        let res_sign = ui.add(egui::TextEdit::singleline(&mut op.i64_str).desired_width(350.0));
+        let res_sign = ui.add(egui::TextEdit::singleline(&mut op.i64_str).desired_width(375.0));
         if res_sign.changed() {
             if let Ok(value) = op.i64_str.parse::<i64>() {
                 op.u64 = unsafe { mem::transmute(value) };
@@ -1190,7 +1190,7 @@ fn draw_src_b64(_ctx: &egui::Context, ui: &mut egui::Ui, op: &mut OpB64) {
         ui.end_row();
         //f32 text edit
         ui.label("Float Representation");
-        let res_float = ui.add(egui::TextEdit::singleline(&mut op.f64_str).desired_width(350.0));
+        let res_float = ui.add(egui::TextEdit::singleline(&mut op.f64_str).desired_width(375.0));
         if res_float.changed() {
             if let Ok(value) = op.f64_str.parse::<f64>() {
                 op.u64 = value.to_bits();
