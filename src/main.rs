@@ -3,8 +3,8 @@
 #![feature(unchecked_math)]
 
 use eframe::egui;
-use eframe::egui::{Color32, Response, Style, Ui, Widget};
-use egui::{Align, FontId, Label, RichText, TextFormat, Vec2, Visuals};
+use eframe::egui::{Color32};
+use egui::{TextFormat, Vec2, Visuals};
 use half::f16;
 use std::mem;
 
@@ -394,7 +394,7 @@ impl eframe::App for MyApp {
     }
 }
 
-fn draw_src_b16(ctx: &egui::Context, ui: &mut egui::Ui, op: &mut OpB16) {
+fn draw_src_b16(_ctx: &egui::Context, ui: &mut egui::Ui, op: &mut OpB16) {
     // ui.collapsing(op.name.to_owned(), |ui| {
     ui.horizontal(|ui| {
         // signed bit
@@ -531,18 +531,6 @@ fn draw_src_b16(ctx: &egui::Context, ui: &mut egui::Ui, op: &mut OpB16) {
         },
     );
 
-    // let op_f16: f16 = unsafe { mem::transmute(op.u16) };
-    // let mantissa: f16 = op_f16 / 2.0_f32.powi(exp);
-
-    // job.append(
-    //     &mantissa.to_string(),
-    //     0.0,
-    //     TextFormat {
-    //         background: Color32::from_rgb(255, 187, 187),
-    //         ..Default::default()
-    //     },
-    // );
-
     ui.label(job);
     ui.horizontal(|ui| {
         //hex text edit
@@ -603,20 +591,6 @@ fn draw_src_b16(ctx: &egui::Context, ui: &mut egui::Ui, op: &mut OpB16) {
         }
     });
     ui.horizontal(|ui| {
-        if ui.button("-1").clicked() {
-            op.u16 = unsafe { mem::transmute(-1_i16) };
-        }
-        if ui.button("0").clicked() {
-            op.u16 = 0;
-        }
-
-        // if ui.button("0.5").clicked() {
-        //     op.u16 = 0.5_f32 as f16;
-        // }
-
-        // if ui.button("1.0").clicked() {
-        //     op.u16 = 1.0_f32.to_bits();
-        // }
 
         if ui.button("inf").clicked() {
             op.u16 = f16::INFINITY.to_bits();
@@ -634,15 +608,6 @@ fn draw_src_b16(ctx: &egui::Context, ui: &mut egui::Ui, op: &mut OpB16) {
             op.u16 = f16::MIN.to_bits();
         }
 
-        // if ui.button("-1ulp").clicked() {
-        //     let tmp_f16: f16 = unsafe { mem::transmute(op.u16) };
-        //     op.u16 = tmp_f16.next_down().to_bits();
-        // }
-
-        // if ui.button("+1ulp").clicked() {
-        //     let tmp_f32: f32 = unsafe { mem::transmute(op.u16) };
-        //     op.u16 = tmp_f32.next_up().to_bits();
-        // }
 
         if ui.button("des").clicked() {
             if op.u16 == 0 {
@@ -678,7 +643,7 @@ fn draw_src_b16(ctx: &egui::Context, ui: &mut egui::Ui, op: &mut OpB16) {
     // });
 }
 
-fn draw_src_b32(ctx: &egui::Context, ui: &mut egui::Ui, op: &mut OpB32) {
+fn draw_src_b32(_ctx: &egui::Context, ui: &mut egui::Ui, op: &mut OpB32) {
     // ui.collapsing(op.name.to_owned(), |ui| {
     ui.horizontal(|ui| {
         // signed bit
@@ -750,19 +715,6 @@ fn draw_src_b32(ctx: &egui::Context, ui: &mut egui::Ui, op: &mut OpB32) {
                         op.u32 = op.u32 & !(0x1 << (31 - i));
                     }
                 }
-                // if res_checkbox.hovered() {
-                //     let mut mantissa_u32 = op.u32;
-                //     let mut mantissa_f32: f32 = unsafe { mem::transmute(mantissa_u32) };
-
-                //     if mantissa_f32.is_normal() {
-                //         mantissa_u32 = mantissa_u32 | 0x3F000000;
-                //     }
-
-                //     mantissa_f32 = unsafe { mem::transmute(mantissa_u32) };
-
-                //     res_checkbox
-                //         .on_hover_text("mantissa: ".to_string() + &mantissa_f32.to_string());
-                // }
             });
         }
     });
@@ -841,9 +793,10 @@ fn draw_src_b32(ctx: &egui::Context, ui: &mut egui::Ui, op: &mut OpB32) {
     );
 
     ui.label(job);
-    ui.horizontal(|ui| {
+    egui::Grid::new("src_b32").num_columns(2).show(ui, |ui| {
         //hex text edit
-        let res_hex = ui.add(egui::TextEdit::singleline(&mut op.hex_str).desired_width(80.0));
+        ui.label("Hexadecimal Representation");
+        let res_hex = ui.add(egui::TextEdit::singleline(&mut op.hex_str).desired_width(375.0));
         if res_hex.changed() {
             if let Ok(value) = u32::from_str_radix(&op.hex_str[2..], 16) {
                 op.u32 = value;
@@ -852,9 +805,11 @@ fn draw_src_b32(ctx: &egui::Context, ui: &mut egui::Ui, op: &mut OpB32) {
         if !res_hex.has_focus() {
             op.hex_str = format!("0x{:X}", op.u32);
         }
+        ui.end_row();
 
         // u32 text edit
-        let res_unsign = ui.add(egui::TextEdit::singleline(&mut op.u32_str).desired_width(80.0));
+        ui.label("Unsigned Integer Representation");
+        let res_unsign = ui.add(egui::TextEdit::singleline(&mut op.u32_str).desired_width(375.0));
         if res_unsign.changed() {
             if let Ok(value) = op.u32_str.parse::<u32>() {
                 op.u32 = value;
@@ -863,9 +818,12 @@ fn draw_src_b32(ctx: &egui::Context, ui: &mut egui::Ui, op: &mut OpB32) {
         if !res_unsign.has_focus() {
             op.u32_str = format!("{}", op.u32);
         }
+        ui.end_row();
+
 
         //i32 text edit
-        let res_sign = ui.add(egui::TextEdit::singleline(&mut op.i32_str).desired_width(80.0));
+        ui.label("Signed Integer Representation");
+        let res_sign = ui.add(egui::TextEdit::singleline(&mut op.i32_str).desired_width(375.0));
         if res_sign.changed() {
             if let Ok(value) = op.i32_str.parse::<i32>() {
                 op.u32 = unsafe { mem::transmute(value) };
@@ -876,9 +834,11 @@ fn draw_src_b32(ctx: &egui::Context, ui: &mut egui::Ui, op: &mut OpB32) {
             let tmp_i32: i32 = unsafe { mem::transmute(op.u32) };
             op.i32_str = tmp_i32.to_string();
         }
+        ui.end_row();
 
         //f32 text edit
-        let res_float = ui.add(egui::TextEdit::singleline(&mut op.f32_str).desired_width(350.0));
+        ui.label("Float Representation");
+        let res_float = ui.add(egui::TextEdit::singleline(&mut op.f32_str).desired_width(375.0));
         if res_float.changed() {
             if let Ok(value) = op.f32_str.parse::<f32>() {
                 op.u32 = value.to_bits();
@@ -889,7 +849,7 @@ fn draw_src_b32(ctx: &egui::Context, ui: &mut egui::Ui, op: &mut OpB32) {
             let tmp_f32: f32 = unsafe { mem::transmute(op.u32) };
             op.f32_str = tmp_f32.to_string();
         }
-
+        ui.end_row();
         //bits
         for i in 0..32 {
             if op.u32 & (0x1 << i) != 0 {
@@ -900,20 +860,6 @@ fn draw_src_b32(ctx: &egui::Context, ui: &mut egui::Ui, op: &mut OpB32) {
         }
     });
     ui.horizontal(|ui| {
-        if ui.button("-1").clicked() {
-            op.u32 = unsafe { mem::transmute(-1) };
-        }
-        if ui.button("0").clicked() {
-            op.u32 = 0;
-        }
-
-        if ui.button("0.5").clicked() {
-            op.u32 = 0.5_f32.to_bits();
-        }
-
-        if ui.button("1.0").clicked() {
-            op.u32 = 1.0_f32.to_bits();
-        }
         if ui.button("inf").clicked() {
             op.u32 = f32::INFINITY.to_bits();
         }
@@ -1147,7 +1093,7 @@ fn draw_src_b64(_ctx: &egui::Context, ui: &mut egui::Ui, op: &mut OpB64) {
 
     ui.label(job);
 
-    egui::Grid::new("some_unique_id").num_columns(2).show(ui, |ui| {
+    egui::Grid::new("src_b64").num_columns(2).show(ui, |ui| {
         //hex text edit
         ui.label("Hexadecimal Representation");
         let res_hex = ui.add(egui::TextEdit::singleline(&mut op.hex_str).
@@ -1274,7 +1220,7 @@ fn draw_src_b64(_ctx: &egui::Context, ui: &mut egui::Ui, op: &mut OpB64) {
     // });
 }
 
-fn draw_dest(ctx: &egui::Context, ui: &mut egui::Ui, op: &mut OpB32) {
+fn draw_dest(_ctx: &egui::Context, ui: &mut egui::Ui, op: &mut OpB32) {
     ui.collapsing(op.name.to_owned(), |ui| {
         ui.horizontal(|ui| {
             // signed bit
