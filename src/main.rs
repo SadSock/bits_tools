@@ -532,9 +532,10 @@ fn draw_src_b16(_ctx: &egui::Context, ui: &mut egui::Ui, op: &mut OpB16) {
     );
 
     ui.label(job);
-    ui.horizontal(|ui| {
+    egui::Grid::new("src_b16").num_columns(2).show(ui, |ui| {
         //hex text edit
-        let res_hex = ui.add(egui::TextEdit::singleline(&mut op.hex_str).desired_width(80.0));
+        ui.label("Hexadecimal Representation");
+        let res_hex = ui.add(egui::TextEdit::singleline(&mut op.hex_str).desired_width(375.0));
         if res_hex.changed() {
             if let Ok(value) = u16::from_str_radix(&op.hex_str[2..], 16) {
                 op.u16 = value;
@@ -543,9 +544,11 @@ fn draw_src_b16(_ctx: &egui::Context, ui: &mut egui::Ui, op: &mut OpB16) {
         if !res_hex.has_focus() {
             op.hex_str = format!("0x{:X}", op.u16);
         }
+        ui.end_row();
 
         // u32 text edit
-        let res_unsign = ui.add(egui::TextEdit::singleline(&mut op.u16_str).desired_width(80.0));
+        ui.label("Unsigned Integer Representation");
+        let res_unsign = ui.add(egui::TextEdit::singleline(&mut op.u16_str).desired_width(375.0));
         if res_unsign.changed() {
             if let Ok(value) = op.u16_str.parse::<u16>() {
                 op.u16 = value;
@@ -554,9 +557,11 @@ fn draw_src_b16(_ctx: &egui::Context, ui: &mut egui::Ui, op: &mut OpB16) {
         if !res_unsign.has_focus() {
             op.u16_str = format!("{}", op.u16);
         }
+        ui.end_row();
 
         //i32 text edit
-        let res_sign = ui.add(egui::TextEdit::singleline(&mut op.i16_str).desired_width(80.0));
+        ui.label("Signed Integer Representation");
+        let res_sign = ui.add(egui::TextEdit::singleline(&mut op.i16_str).desired_width(375.0));
         if res_sign.changed() {
             if let Ok(value) = op.i16_str.parse::<i16>() {
                 op.u16 = unsafe { mem::transmute(value) };
@@ -567,9 +572,12 @@ fn draw_src_b16(_ctx: &egui::Context, ui: &mut egui::Ui, op: &mut OpB16) {
             let tmp_i16: i16 = unsafe { mem::transmute(op.u16) };
             op.i16_str = tmp_i16.to_string();
         }
+        ui.end_row();
+
 
         //f32 text edit
-        let res_float = ui.add(egui::TextEdit::singleline(&mut op.f16_str).desired_width(350.0));
+        ui.label("Float Representation");
+        let res_float = ui.add(egui::TextEdit::singleline(&mut op.f16_str).desired_width(375.0));
         if res_float.changed() {
             if let Ok(value) = op.f16_str.parse::<f16>() {
                 op.u16 = value.to_bits();
@@ -580,6 +588,8 @@ fn draw_src_b16(_ctx: &egui::Context, ui: &mut egui::Ui, op: &mut OpB16) {
             let tmp_f16: f16 = unsafe { mem::transmute(op.u16) };
             op.f16_str = tmp_f16.to_string();
         }
+        ui.end_row();
+
 
         //bits
         for i in 0..16 {
